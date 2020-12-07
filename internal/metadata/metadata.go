@@ -103,7 +103,6 @@ func runCommands(conf config.Config) {
 
 	mux.Lock()
 	defer mux.Unlock()
-	log.Error("newKV", newKV)
 	cached = newKV
 }
 

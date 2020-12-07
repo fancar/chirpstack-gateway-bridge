@@ -18,10 +18,6 @@ func hostMetrics(conf config.Config) (map[string]string, error) {
 	wifiName := strings.ToLower(conf.MetaData.Host.Ifaces.Wlan) // "wlp3s0"
 	lteName := strings.ToLower(conf.MetaData.Host.Ifaces.Lte)   // "ppp0" // LTE modem iface
 	vpnName := strings.ToLower(conf.MetaData.Host.Ifaces.Vpn)   // "ppp1" // ppp iface to CHR
-	fmt.Println("ethName ", ethName)
-	fmt.Println("wifiName ", wifiName)
-	fmt.Println("lteName ", lteName)
-	fmt.Println("vpnName ", vpnName)
 
 	result := make(map[string]string)
 
