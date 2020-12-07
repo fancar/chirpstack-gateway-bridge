@@ -37,6 +37,7 @@ func init() {
 
 	// default values
 	viper.SetDefault("general.log_level", 4)
+	viper.SetDefault("general.version", version)
 	viper.SetDefault("backend.type", "semtech_udp")
 	viper.SetDefault("backend.semtech_udp.udp_bind", "0.0.0.0:1700")
 
@@ -68,6 +69,11 @@ func init() {
 	viper.SetDefault("integration.mqtt.auth.gcp_cloud_iot_core.jwt_expiration", time.Hour*24)
 
 	viper.SetDefault("integration.mqtt.auth.azure_iot_hub.sas_token_expiration", 24*time.Hour)
+
+	viper.SetDefault("meta_data.host.ifaces.eth", "eth0")
+	viper.SetDefault("meta_data.host.ifaces.wlan", "wlan0")
+	viper.SetDefault("meta_data.host.ifaces.lte", "usb0")
+	viper.SetDefault("meta_data.host.ifaces.vpn", "ppp0")
 
 	viper.SetDefault("meta_data.dynamic.split_delimiter", "=")
 	viper.SetDefault("meta_data.dynamic.execution_interval", time.Minute)

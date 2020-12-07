@@ -7,8 +7,9 @@ import (
 // Config defines the configuration structure.
 type Config struct {
 	General struct {
-		LogLevel    int  `mapstructure:"log_level"`
-		LogToSyslog bool `mapstructure:"log_to_syslog"`
+		LogLevel    int    `mapstructure:"log_level"`
+		Version     string `mapstructure:"version"`
+		LogToSyslog bool   `mapstructure:"log_to_syslog"`
 	} `mapstructure:"general"`
 
 	Filters struct {
@@ -109,6 +110,15 @@ type Config struct {
 	} `mapstructure:"metrics"`
 
 	MetaData struct {
+		Host struct {
+			Ifaces struct {
+				Eth  string `mapstructure:"eth"`
+				Wlan string `mapstructure:"wlan"`
+				Lte  string `mapstructure:"lte"`
+				Vpn  string `mapstructure:"vpn"`
+			} `mapstructure:"ifaces"`
+		} `mapstructure:"host"`
+
 		Static  map[string]string `mapstructure:"static"`
 		Dynamic struct {
 			ExecutionInterval    time.Duration     `mapstructure:"execution_interval"`

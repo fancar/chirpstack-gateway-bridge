@@ -41,7 +41,7 @@ func Setup(conf config.Config) error {
 
 	go func() {
 		for {
-			runCommands()
+			runCommands(conf)
 			time.Sleep(interval)
 		}
 	}()
@@ -57,10 +57,19 @@ func Get() map[string]string {
 	return cached
 }
 
-func runCommands() {
+func runCommands(conf config.Config) {
 	newKV := make(map[string]string)
 	for k, v := range static {
 		newKV[k] = v
+	}
+
+	hostmetrics, err := hostMetrics(conf)
+	if err != nil {
+		log.WithError(err).Error("can't collect host-metrics")
+	} else {
+		for k, v := range hostmetrics {
+			newKV[k] = v
+		}
 	}
 
 	for k, cmd := range cmnds {
@@ -94,6 +103,7 @@ func runCommands() {
 
 	mux.Lock()
 	defer mux.Unlock()
+	log.Error("newKV", newKV)
 	cached = newKV
 }
 

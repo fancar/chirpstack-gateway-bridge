@@ -31,7 +31,8 @@ func init() {
 	enableClientLogging()
 }
 
-var version string // set by the compiler
+//  set by the compiler
+var version string
 
 func main() {
 	cmd.Execute(version)

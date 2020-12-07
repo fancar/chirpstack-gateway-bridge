@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"html/template"
-	"os"
+  "html/template"
+  "os"
 
-	"github.com/brocaar/chirpstack-gateway-bridge/internal/config"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
+  "github.com/brocaar/chirpstack-gateway-bridge/internal/config"
+  "github.com/pkg/errors"
+  "github.com/spf13/cobra"
 )
 
 // when updating this template, don't forget to update config.md!
@@ -195,7 +195,7 @@ type="{{ .Backend.Type }}"
     [[backend.basic_station.concentrators]]
       [backend.basic_station.concentrators.multi_sf]
       frequencies=[{{ range $index, $elm := $concentrator.MultiSF.Frequencies }}
-		{{ $elm }},{{ end }}
+    {{ $elm }},{{ end }}
       ]
 
       [backend.basic_station.concentrators.lora_std]
@@ -399,6 +399,25 @@ marshaler="{{ .Integration.Marshaler }}"
 # Bridge.
 [meta_data]
 
+  # host's metadata 
+  # some metrics from the host (cpu,ram,disk space, eth ifaces etc)
+  [meta_data.host]
+
+  [meta_data.host.ifaces]
+  #ifaces. Name of ifaces in the system it converts to eth\wlan\lte\vpn names in metadata 
+
+  # ethernet interface name
+  eth="{{ .MetaData.Host.Ifaces.Eth }}"
+
+  # wireless interface name
+  wlan="{{ .MetaData.Host.Ifaces.Wlan }}"
+
+  # gsm interface name
+  lte="{{ .MetaData.Host.Ifaces.Lte }}"
+
+  # vpn interface name
+  vpn="{{ .MetaData.Host.Ifaces.Vpn }}"
+
   # Static.
   #
   # Static key (string) / value (string) meta-data.
@@ -462,14 +481,14 @@ marshaler="{{ .Integration.Marshaler }}"
 `
 
 var configCmd = &cobra.Command{
-	Use:   "configfile",
-	Short: "Print the ChirpStack Gateway Bridge configuration file",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		t := template.Must(template.New("config").Parse(configTemplate))
-		err := t.Execute(os.Stdout, config.C)
-		if err != nil {
-			return errors.Wrap(err, "execute config template error")
-		}
-		return nil
-	},
+  Use:   "configfile",
+  Short: "Print the ChirpStack Gateway Bridge configuration file",
+  RunE: func(cmd *cobra.Command, args []string) error {
+    t := template.Must(template.New("config").Parse(configTemplate))
+    err := t.Execute(os.Stdout, config.C)
+    if err != nil {
+      return errors.Wrap(err, "execute config template error")
+    }
+    return nil
+  },
 }
