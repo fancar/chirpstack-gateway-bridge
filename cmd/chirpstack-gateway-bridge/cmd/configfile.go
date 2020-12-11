@@ -69,7 +69,7 @@ type="{{ .Backend.Type }}"
 
 
   # Semtech UDP packet-forwarder backend.
-  [backend.semtech_udp]
+  [backend.semtech_udp] 
 
   # ip:port to bind the UDP listener to
   #
@@ -90,6 +90,26 @@ type="{{ .Backend.Type }}"
   # Fake the RX time when the gateway does not have GPS, in which case
   # the time would otherwise be unset.
   fake_rx_time={{ .Backend.SemtechUDP.FakeRxTime }}
+
+  [backend.semtech_udp.single]
+    # the modified service can work in single mode.
+    # So it can recieve commands for the given gw_id and send statistics
+    # even without packet forwarder running
+
+    # (!) Works only if the parameter "udp_bind: binded on 'localhost'!
+
+    # if enabled=true the bridge handles with only one packet forwarder
+    enabled="{{ .Backend.SemtechUDP.Single.Mode }}"
+
+    # gateway id (64 bit) of the device the bridge will be handling only
+    # can't be blank
+    gw_id=""
+
+    # send stats even if the packet forwarder is off. If 0 - disabled
+    # time (in seconds) must be the same as 'stats interval' in gateway profile 
+    # on the NS platrorm. If enabled - the device will be 'online' on the platform
+    # even if packet forwarder is off. Default push_stats=0
+    push_stats="{{ .Backend.SemtechUDP.Single.PushStats }}"
 
 
   # ChirpStack Concentratord backend.

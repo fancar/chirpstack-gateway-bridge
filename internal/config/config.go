@@ -21,6 +21,12 @@ type Config struct {
 		Type string `mapstructure:"type"`
 
 		SemtechUDP struct {
+			Single struct {
+				Enabled   bool   `mapstructure:"enabled"`
+				GwID      string `mapstructure:"gw_id"`
+				PushStats uint32 `mapstructure:"push_stats"`
+			} `mapstructure:"single"`
+
 			UDPBind      string `mapstructure:"udp_bind"`
 			SkipCRCCheck bool   `mapstructure:"skip_crc_check"`
 			FakeRxTime   bool   `mapstructure:"fake_rx_time"`

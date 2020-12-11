@@ -14,10 +14,10 @@ import (
 )
 
 func hostMetrics(conf config.Config) (map[string]string, error) {
-	ethName := strings.ToLower(conf.MetaData.Host.Ifaces.Eth)   // "enp0s25"
-	wifiName := strings.ToLower(conf.MetaData.Host.Ifaces.Wlan) // "wlp3s0"
-	lteName := strings.ToLower(conf.MetaData.Host.Ifaces.Lte)   // "ppp0" // LTE modem iface
-	vpnName := strings.ToLower(conf.MetaData.Host.Ifaces.Vpn)   // "ppp1" // ppp iface to CHR
+	ethName := strings.ToLower(conf.MetaData.Host.Ifaces.Eth)   // ethernet interface
+	wifiName := strings.ToLower(conf.MetaData.Host.Ifaces.Wlan) // 802.11 interface
+	lteName := strings.ToLower(conf.MetaData.Host.Ifaces.Lte)   // LTE modem iface
+	vpnName := strings.ToLower(conf.MetaData.Host.Ifaces.Vpn)   // ppp iface to CHR
 
 	result := make(map[string]string)
 
@@ -64,7 +64,7 @@ func hostMetrics(conf config.Config) (map[string]string, error) {
 	return result, nil
 }
 
-// makes key-value pares for interfaces we need to check
+// makes key-value pairs for interfaces we need to check
 func ifaceMetrics(interf net.InterfaceStat, ifaceName string) map[string]string {
 	result := make(map[string]string)
 	if interf.HardwareAddr != "" {

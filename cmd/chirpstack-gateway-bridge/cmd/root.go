@@ -39,7 +39,10 @@ func init() {
 	viper.SetDefault("general.log_level", 4)
 	viper.SetDefault("general.version", version)
 	viper.SetDefault("backend.type", "semtech_udp")
-	viper.SetDefault("backend.semtech_udp.udp_bind", "0.0.0.0:1700")
+
+	viper.SetDefault("backend.semtech_udp.single.enabled", true)
+	viper.SetDefault("backend.semtech_udp.push_stats", 0)
+	viper.SetDefault("backend.semtech_udp.udp_bind", "localhost:1700")
 
 	viper.SetDefault("backend.concentratord.crc_check", true)
 	viper.SetDefault("backend.concentratord.event_url", "ipc:///tmp/concentratord_event")

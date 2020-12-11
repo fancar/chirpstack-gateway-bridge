@@ -1,14 +1,17 @@
 package semtechudp
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -43,6 +46,7 @@ type Backend struct {
 	rawPacketForwarderEventFunc func(gw.RawPacketForwarderEvent)
 
 	udpSendChan chan udpPacket
+	statsChan   chan gw.GatewayStats
 
 	wg           sync.WaitGroup
 	conn         *net.UDPConn
@@ -50,13 +54,25 @@ type Backend struct {
 	gateways     gateways
 	fakeRxTime   bool
 	skipCRCCheck bool
+
+	// single mode params
+	singleMode bool
+	singleGwID lorawan.EUI64
+	pushStats  uint32 // send stats in seconds, if not 0 it sends stats anyway (even with no pf)
 }
 
 // NewBackend creates a new backend.
 func NewBackend(conf config.Config) (*Backend, error) {
+	// if conf.Backend.SemtechUDP.Single.Enabled {
+
+	// }
 	addr, err := net.ResolveUDPAddr("udp", conf.Backend.SemtechUDP.UDPBind)
 	if err != nil {
 		return nil, errors.Wrap(err, "resolve udp addr error")
+	}
+
+	if conf.Backend.SemtechUDP.Single.Enabled && !addr.IP.IsLoopback() {
+		return nil, fmt.Errorf("semtechudp: Single mode is ON. udp_bind can be only on localhost")
 	}
 
 	log.WithField("addr", addr).Info("backend/semtechudp: starting gateway udp listener")
@@ -74,17 +90,33 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		fakeRxTime:   conf.Backend.SemtechUDP.FakeRxTime,
 		skipCRCCheck: conf.Backend.SemtechUDP.SkipCRCCheck,
 		cache:        cache.New(15*time.Second, 15*time.Second),
+
+		singleMode: conf.Backend.SemtechUDP.Single.Enabled,
+		pushStats:  conf.Backend.SemtechUDP.Single.PushStats,
 	}
 
-	go func() {
-		for {
-			log.Debug("backend/semtechudp: cleanup gateway registry")
-			if err := b.gateways.cleanup(); err != nil {
-				log.WithError(err).Error("backend/semtechudp: gateway registry cleanup failed")
-			}
-			time.Sleep(time.Minute)
+	if b.singleMode {
+		gw, err := hex.DecodeString(conf.Backend.SemtechUDP.Single.GwID)
+		if err != nil {
+			return nil, errors.Wrap(err, "semtechudp: Single mode is on! gw_id must be 8byte hex string")
 		}
-	}()
+		if len(gw) == 0 {
+			return nil, fmt.Errorf("semtechudp: Single mode is on! Specify gw_id parameter with gateway id (8byte hex representation)")
+		}
+		copy(b.singleGwID[:], gw)
+		log.WithField("gw_id", b.singleGwID).Info("backend/semtechudp: operates in single mode")
+
+	} else {
+		go func() {
+			for {
+				log.Debug("backend/semtechudp: cleanup gateway registry")
+				if err := b.gateways.cleanup(); err != nil {
+					log.WithError(err).Error("backend/semtechudp: gateway registry cleanup failed")
+				}
+				time.Sleep(time.Minute)
+			}
+		}()
+	}
 
 	return b, nil
 }
@@ -109,7 +141,67 @@ func (b *Backend) Start() error {
 		b.wg.Done()
 	}()
 
+	if b.singleMode {
+		err := b.gateways.set(b.singleGwID, gateway{
+			lastSeen: time.Now().UTC(),
+			// addr:     addr,
+			// protocolVersion: p.ProtocolVersion,
+		})
+		if err != nil {
+			return errors.Wrap(err, "set gateway error")
+		}
+
+		if b.pushStats != 0 {
+			go b.statsSender()
+		}
+
+	}
+
 	return nil
+}
+
+// statsSender: mod, sends gw stats even without any forwarder
+func (b *Backend) statsSender() {
+	// pf_is_off := false
+	gap := time.Duration(b.pushStats) * time.Second
+	log.WithField("period", gap).Debug("backend/semtechudp: Single gw. statsSender is on.")
+	ticker := time.NewTicker(gap + time.Second)
+	var pfts time.Time // last time when stats was sent by packet fowrarder
+
+	s := gw.GatewayStats{
+		GatewayId: b.singleGwID[:],
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			if time.Now().Sub(pfts) > gap {
+				ip, err := getOutboundIP()
+				if err != nil {
+					log.WithError(err).Error("backend/semtechudp: get outbound ip error")
+				} else {
+					s.Ip = ip.String()
+				}
+
+				// set stats id
+				statsID, err := uuid.NewV4()
+				if err != nil {
+					log.WithError(err).Error("backend/semtechudp: (statsSender) new uuid error")
+				} else {
+					s.StatsId = statsID[:]
+				}
+
+				log.WithField("gw_id", b.singleGwID).Debug("backend/semtechudp: No stats from pf. Sending stats by internal timer ...")
+
+				b.handleStats(s)
+			}
+
+		case stats := <-b.statsChan: // triggered from forwarder by PushData packet
+			pfts = time.Now()
+			b.handleStats(stats)
+		}
+	}
+
 }
 
 // Stop stops the backend.
@@ -323,6 +415,12 @@ func (b *Backend) handlePullData(up udpPacket) error {
 	if err := p.UnmarshalBinary(up.data); err != nil {
 		return err
 	}
+
+	if b.singleMode && !bytes.Equal(p.GatewayMAC[:], b.singleGwID[:]) {
+		hexStr := hex.EncodeToString(p.GatewayMAC[:])
+		fmt.Errorf("backend/semtechudp: (Single mode) can't handle PullDataPacket: unkwnown gwid %s", hexStr)
+	}
+
 	ack := packets.PullACKPacket{
 		ProtocolVersion: p.ProtocolVersion,
 		RandomToken:     p.RandomToken,
@@ -446,6 +544,11 @@ func (b *Backend) handlePushData(up udpPacket) error {
 		return err
 	}
 
+	if b.singleMode && !bytes.Equal(p.GatewayMAC[:], b.singleGwID[:]) {
+		hexStr := hex.EncodeToString(p.GatewayMAC[:])
+		fmt.Errorf("backend/semtechudp: (Single mode) can't handle PullDataPacket: unkwnown gwid %s", hexStr)
+	}
+
 	// ack the packet
 	ack := packets.PushACKPacket{
 		ProtocolVersion: p.ProtocolVersion,
@@ -477,8 +580,11 @@ func (b *Backend) handlePushData(up udpPacket) error {
 		} else {
 			stats.Ip = up.addr.IP.String()
 		}
-
-		b.handleStats(p.GatewayMAC, *stats)
+		if b.singleMode && b.pushStats != 0 {
+			b.statsChan <- *stats
+		} else {
+			b.handleStats(*stats)
+		}
 	}
 
 	// uplink frames
@@ -491,7 +597,8 @@ func (b *Backend) handlePushData(up udpPacket) error {
 	return nil
 }
 
-func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
+// func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
+func (b *Backend) handleStats(stats gw.GatewayStats) {
 	if b.gatewayStatsFunc != nil {
 		b.gatewayStatsFunc(stats)
 	}

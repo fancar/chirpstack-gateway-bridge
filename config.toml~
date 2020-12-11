@@ -1,0 +1,41 @@
+# See https://www.chirpstack.io/gateway-bridge/install/config/ for a full
+# configuration example and documentation.
+
+[integration.mqtt.auth.generic]
+servers=["tcp://localhost:1883"]
+username=""
+password=""
+
+[backend.semtech_udp.single]
+	enabled=true
+
+	gw_id="0101010101010101"
+
+	push_stats="30" # in seconds
+
+[meta_data]
+  [meta_data.host]
+
+	  [meta_data.host.ifaces]
+	  eth="Enp0s25"
+
+	  # wireless interface name
+	  wlan="wlp3s0"
+
+	  # gsm interface name
+	  lte="ppp0"
+
+	  # vpn interface name
+	  vpn="ppp0"
+
+
+# Executable commands.
+#
+# The configured commands can be triggered by sending a message to the
+# ChirpStack Gateway Bridge.
+[commands]
+
+  # TEST:
+  # [commands.commands.ping]
+  # max_execution_duration="1s"
+  # command="/bin/echo pong"
