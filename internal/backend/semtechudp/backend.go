@@ -418,7 +418,7 @@ func (b *Backend) handlePullData(up udpPacket) error {
 
 	if b.singleMode && !bytes.Equal(p.GatewayMAC[:], b.singleGwID[:]) {
 		hexStr := hex.EncodeToString(p.GatewayMAC[:])
-		fmt.Errorf("backend/semtechudp: (Single mode) can't handle PullDataPacket: unkwnown gwid %s", hexStr)
+		return fmt.Errorf("backend/semtechudp: (Single mode) can't handle PullDataPacket: unkwnown gwid %s", hexStr)
 	}
 
 	ack := packets.PullACKPacket{
@@ -546,7 +546,7 @@ func (b *Backend) handlePushData(up udpPacket) error {
 
 	if b.singleMode && !bytes.Equal(p.GatewayMAC[:], b.singleGwID[:]) {
 		hexStr := hex.EncodeToString(p.GatewayMAC[:])
-		fmt.Errorf("backend/semtechudp: (Single mode) can't handle PullDataPacket: unkwnown gwid %s", hexStr)
+		return fmt.Errorf("backend/semtechudp: (Single mode) can't handle PullDataPacket: unkwnown gwid %s", hexStr)
 	}
 
 	// ack the packet
