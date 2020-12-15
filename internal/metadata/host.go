@@ -29,7 +29,7 @@ func hostMetrics(conf config.Config) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// fmt.Println("config:", config.Config)
 	result["br_ver"] = conf.General.Version
 	result["disk"] = strconv.FormatFloat(diskStat.UsedPercent, 'f', 2, 64)
 	result["cpu"] = strconv.FormatFloat(cpuPercentage[0], 'f', 2, 64)

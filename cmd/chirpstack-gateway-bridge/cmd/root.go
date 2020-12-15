@@ -37,7 +37,7 @@ func init() {
 
 	// default values
 	viper.SetDefault("general.log_level", 4)
-	viper.SetDefault("general.version", version)
+	viper.SetDefault("general.version", "unknown")
 	viper.SetDefault("backend.type", "semtech_udp")
 
 	viper.SetDefault("backend.semtech_udp.single.enabled", true)
@@ -145,6 +145,9 @@ func initConfig() {
 	// migrate server to servers
 	if config.C.Integration.MQTT.Auth.Generic.Server != "" {
 		config.C.Integration.MQTT.Auth.Generic.Servers = []string{config.C.Integration.MQTT.Auth.Generic.Server}
+	}
+	if version != "" {
+		config.C.General.Version = version
 	}
 }
 

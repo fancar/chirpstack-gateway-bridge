@@ -96,14 +96,16 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	}
 
 	if b.singleMode {
-		gw, err := hex.DecodeString(conf.Backend.SemtechUDP.Single.GwID)
+		gwID, err := hex.DecodeString(conf.Backend.SemtechUDP.Single.GwID)
 		if err != nil {
 			return nil, errors.Wrap(err, "semtechudp: Single mode is on! gw_id must be 8byte hex string")
 		}
-		if len(gw) == 0 {
+		if len(gwID) == 0 {
 			return nil, fmt.Errorf("semtechudp: Single mode is on! Specify gw_id parameter with gateway id (8byte hex representation)")
 		}
-		copy(b.singleGwID[:], gw)
+
+		copy(b.singleGwID[:], gwID)
+		b.statsChan = make(chan gw.GatewayStats)
 		log.WithField("gw_id", b.singleGwID).Info("backend/semtechudp: operates in single mode")
 
 	} else {
@@ -160,7 +162,7 @@ func (b *Backend) Start() error {
 	return nil
 }
 
-// statsSender: mod, sends gw stats even without any forwarder
+// statsSender: mod. Works in single mode. Sends gw stats even without any forwarder
 func (b *Backend) statsSender() {
 	// pf_is_off := false
 	gap := time.Duration(b.pushStats) * time.Second
@@ -191,7 +193,7 @@ func (b *Backend) statsSender() {
 					s.StatsId = statsID[:]
 				}
 
-				log.WithField("gw_id", b.singleGwID).Debug("backend/semtechudp: No stats from pf. Sending stats by internal timer ...")
+				log.WithField("gw_id", b.singleGwID).Warn("backend/semtechudp: No stats from pf. Sending stats by internal timer ...")
 
 				b.handleStats(s)
 			}
@@ -580,6 +582,7 @@ func (b *Backend) handlePushData(up udpPacket) error {
 		} else {
 			stats.Ip = up.addr.IP.String()
 		}
+
 		if b.singleMode && b.pushStats != 0 {
 			b.statsChan <- *stats
 		} else {
