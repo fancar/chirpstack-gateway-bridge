@@ -61,3 +61,17 @@ func (g *gateways) remove(id lorawan.EUI64) error {
 	delete(g.gateways, id)
 	return nil
 }
+
+func (g *gateways) reset(id lorawan.EUI64) error {
+	g.Lock()
+	defer g.Unlock()
+
+	_, ok := g.gateways[id]
+	if !ok {
+		return errGatewayDoesNotExist
+	}
+
+	g.gateways[id] = gateway{}
+
+	return nil
+}

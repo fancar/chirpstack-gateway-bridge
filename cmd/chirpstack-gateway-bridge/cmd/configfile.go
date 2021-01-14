@@ -99,7 +99,7 @@ type="{{ .Backend.Type }}"
     # (!) Works only if the parameter "udp_bind: binded on 'localhost'!
 
     # if enabled=true the bridge handles with only one packet forwarder
-    enabled="{{ .Backend.SemtechUDP.Single.Mode }}"
+    enabled="{{ .Backend.SemtechUDP.Single.Enabled }}"
 
     # gateway id (64 bit) of the device the bridge will be handling only
     # can't be blank
@@ -226,6 +226,21 @@ type="{{ .Backend.Type }}"
       [backend.basic_station.concentrators.fsk]
       frequency={{ $concentrator.FSK.Frequency }}
 {{ end }}
+
+  [backend.basic_station.single]
+    # the modified service can work in single mode.
+    # So it can recieve commands for the given gw_id and send statistics
+    # even without packet forwarder running next to the gw-bridge
+
+    # (!) Works only if it runs on 'localhost'! (param 'bind')
+
+    # if enabled=true the bridge handles with only one packet forwarder
+    enabled="{{ .Backend.BasicStation.Single.Enabled }}"
+
+    # gateway id (64 bit) of the device the bridge will be handling only
+    # can't be blank if enabled
+    gw_id=""
+
 
 # Integration configuration.
 [integration]

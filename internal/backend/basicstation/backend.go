@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -76,6 +77,10 @@ type Backend struct {
 
 	// Cache to store diid to UUIDs.
 	diidCache *cache.Cache
+
+	// single mode params
+	singleMode bool
+	singleGwID lorawan.EUI64
 }
 
 // NewBackend creates a new Backend.
@@ -102,6 +107,8 @@ func NewBackend(conf config.Config) (*Backend, error) {
 
 		diidCache:  cache.New(time.Minute, time.Minute),
 		statsCache: cache.New(conf.Backend.BasicStation.StatsInterval*2, conf.Backend.BasicStation.StatsInterval*2),
+
+		singleMode: conf.Backend.BasicStation.Single.Enabled,
 	}
 
 	for _, n := range conf.Filters.NetIDs {
@@ -171,6 +178,20 @@ func NewBackend(conf config.Config) (*Backend, error) {
 			ClientCAs:  caCertPool,
 			ClientAuth: tls.RequireAndVerifyClientCert,
 		}
+	}
+
+	if b.singleMode {
+		gwID, err := hex.DecodeString(conf.Backend.BasicStation.Single.GwID)
+		if err != nil {
+			return nil, errors.Wrap(err, "basic_station: Single mode is on! gw_id must be 8byte hex string")
+		}
+
+		if len(gwID) == 0 {
+			return nil, fmt.Errorf("basic_station: Single mode is on! Specify gw_id parameter with gateway id (8byte hex representation)")
+		}
+
+		copy(b.singleGwID[:], gwID)
+		log.WithField("gw_id", b.singleGwID).Info("backend/basic_station: operates in single mode")
 	}
 
 	return &b, nil
@@ -303,6 +324,16 @@ func (b *Backend) Start() error {
 		}
 	}()
 
+	if b.singleMode {
+
+		// send statistics anyway even without packet forwarder connected
+		go b.statsLoop(b.singleGwID, make(chan struct{}))
+
+		// subscribe on mqtt topic for the deveui
+		if err := b.gateways.set(b.singleGwID, gateway{}); err != nil {
+			log.WithError(err).WithField("gateway_id", b.singleGwID).Error("backend/basicstation: set gateway error")
+		}
+	}
 	return nil
 }
 
@@ -358,6 +389,58 @@ func (b *Backend) handleRouterInfo(r *http.Request, c *websocket.Conn) {
 	}).Info("backend/basicstation: router-info request received")
 }
 
+// stats publishing loop
+func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
+	statsTicker := time.NewTicker(b.statsInterval)
+	defer statsTicker.Stop()
+
+	gwIDStr := gatewayID.String()
+
+	for {
+		select {
+		case <-statsTicker.C:
+			id, err := uuid.NewV4()
+			if err != nil {
+				log.WithError(err).Error("backend/basicstation: new uuid error")
+				continue
+			}
+
+			var rx, rxOK, tx, txOK uint32
+			if v, ok := b.statsCache.Get(gwIDStr + ":rx"); ok {
+				rx = v.(uint32)
+			}
+			if v, ok := b.statsCache.Get(gwIDStr + ":rxOK"); ok {
+				rxOK = v.(uint32)
+			}
+			if v, ok := b.statsCache.Get(gwIDStr + ":tx"); ok {
+				tx = v.(uint32)
+			}
+			if v, ok := b.statsCache.Get(gwIDStr + ":txOK"); ok {
+				txOK = v.(uint32)
+			}
+
+			b.statsCache.Delete(gwIDStr + ":rx")
+			b.statsCache.Delete(gwIDStr + ":rxOK")
+			b.statsCache.Delete(gwIDStr + ":tx")
+			b.statsCache.Delete(gwIDStr + ":txOK")
+
+			if b.gatewayStatsFunc != nil {
+				b.gatewayStatsFunc(gw.GatewayStats{
+					GatewayId:           gatewayID[:],
+					Time:                ptypes.TimestampNow(),
+					StatsId:             id[:],
+					RxPacketsReceived:   rx,
+					RxPacketsReceivedOk: rxOK,
+					TxPacketsReceived:   tx,
+					TxPacketsEmitted:    txOK,
+				})
+			}
+		case <-done:
+			return
+		}
+	}
+}
+
 func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
 	// get the gateway id from the url
 	urlParts := strings.Split(r.URL.Path, "/")
@@ -384,10 +467,41 @@ func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
 	}
 
 	// make sure we're not overwriting an existing connection
-	_, err := b.gateways.get(gatewayID)
-	if err == nil {
+	existingGw, err := b.gateways.get(gatewayID)
+	if err == nil && existingGw.conn != nil {
 		log.WithField("gateway_id", gatewayID).Error("backend/basicstation: connection with same gateway id already exists")
+		log.WithField("conn", existingGw.conn).Error("backend/basicstation: the connection extists!") // temp
 		return
+	}
+
+	if b.singleMode {
+		if gatewayID != b.singleGwID {
+			log.WithField("gateway_id", gatewayID).Warn("backend/basicstation: gw-bdige operates in single mode. The recieved id will be ignored")
+			return
+		}
+
+		defer func() {
+			b.gateways.reset(gatewayID)
+			log.WithFields(log.Fields{
+				"gateway_id":  gatewayID,
+				"remote_addr": r.RemoteAddr,
+			}).Info("backend/basicstation: gateway disconnected. Reset (single mode)")
+		}()
+
+	} else {
+		done := make(chan struct{})
+
+		// remove the gateway on return
+		defer func() {
+			done <- struct{}{}
+			b.gateways.remove(gatewayID)
+			log.WithFields(log.Fields{
+				"gateway_id":  gatewayID,
+				"remote_addr": r.RemoteAddr,
+			}).Info("backend/basicstation: gateway disconnected. Removed.")
+		}()
+
+		go b.statsLoop(gatewayID, done)
 	}
 
 	// set the gateway connection
@@ -398,71 +512,6 @@ func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
 		"gateway_id":  gatewayID,
 		"remote_addr": r.RemoteAddr,
 	}).Info("backend/basicstation: gateway connected")
-
-	done := make(chan struct{})
-
-	// remove the gateway on return
-	defer func() {
-		done <- struct{}{}
-		b.gateways.remove(gatewayID)
-		log.WithFields(log.Fields{
-			"gateway_id":  gatewayID,
-			"remote_addr": r.RemoteAddr,
-		}).Info("backend/basicstation: gateway disconnected")
-	}()
-
-	statsTicker := time.NewTicker(b.statsInterval)
-	defer statsTicker.Stop()
-
-	// stats publishing loop
-	go func() {
-		gwIDStr := gatewayID.String()
-
-		for {
-			select {
-			case <-statsTicker.C:
-				id, err := uuid.NewV4()
-				if err != nil {
-					log.WithError(err).Error("backend/basicstation: new uuid error")
-					continue
-				}
-
-				var rx, rxOK, tx, txOK uint32
-				if v, ok := b.statsCache.Get(gwIDStr + ":rx"); ok {
-					rx = v.(uint32)
-				}
-				if v, ok := b.statsCache.Get(gwIDStr + ":rxOK"); ok {
-					rxOK = v.(uint32)
-				}
-				if v, ok := b.statsCache.Get(gwIDStr + ":tx"); ok {
-					tx = v.(uint32)
-				}
-				if v, ok := b.statsCache.Get(gwIDStr + ":txOK"); ok {
-					txOK = v.(uint32)
-				}
-
-				b.statsCache.Delete(gwIDStr + ":rx")
-				b.statsCache.Delete(gwIDStr + ":rxOK")
-				b.statsCache.Delete(gwIDStr + ":tx")
-				b.statsCache.Delete(gwIDStr + ":txOK")
-
-				if b.gatewayStatsFunc != nil {
-					b.gatewayStatsFunc(gw.GatewayStats{
-						GatewayId:           gatewayID[:],
-						Time:                ptypes.TimestampNow(),
-						StatsId:             id[:],
-						RxPacketsReceived:   rx,
-						RxPacketsReceivedOk: rxOK,
-						TxPacketsReceived:   tx,
-						TxPacketsEmitted:    txOK,
-					})
-				}
-			case <-done:
-				return
-			}
-		}
-
-	}()
 
 	// receive data
 	for {
