@@ -832,12 +832,13 @@ func (b *Backend) sendToGateway(gatewayID lorawan.EUI64, v interface{}) error {
 		"message":    string(bb),
 	}).Debug("sending message to gateway")
 
-	gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
-	if err := gw.conn.WriteMessage(websocket.TextMessage, bb); err != nil {
-		return errors.Wrap(err, "send message to gateway error")
-	}
+	return b.sendDataToGWviaSocket(&gw, websocket.TextMessage, bb)
 
-	return nil
+	// gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
+	// if err := gw.conn.WriteMessage(websocket.TextMessage, bb); err != nil {
+	// 	return errors.Wrap(err, "send message to gateway error")
+	// }
+	// return nil
 }
 
 func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, data []byte) error {
@@ -846,11 +847,21 @@ func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, dat
 		return errors.Wrap(err, "get gateway error")
 	}
 
+	return b.sendDataToGWviaSocket(&gw, messageType, data)
+	// gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
+	// if err := gw.conn.WriteMessage(messageType, data); err != nil {
+	// 	return errors.Wrap(err, "send message to gateway error")
+	// }
+	// return nil
+}
+
+func (b *Backend) sendDataToGWviaSocket(gw *gateway, messageType int, data []byte) error {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
 	gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 	if err := gw.conn.WriteMessage(messageType, data); err != nil {
 		return errors.Wrap(err, "send message to gateway error")
 	}
-
 	return nil
 }
 

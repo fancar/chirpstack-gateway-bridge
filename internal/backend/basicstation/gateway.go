@@ -17,6 +17,7 @@ var (
 type gateway struct {
 	conn          *websocket.Conn
 	configVersion string
+	mu            sync.Mutex
 }
 
 type gateways struct {
