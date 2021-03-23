@@ -27,15 +27,15 @@ type gateways struct {
 	subscribeEventFunc func(events.Subscribe)
 }
 
-func (g *gateways) get(id lorawan.EUI64) (gateway, error) {
+func (g *gateways) get(id lorawan.EUI64) (*gateway, error) {
 	g.RLock()
 	defer g.RUnlock()
 
 	gw, ok := g.gateways[id]
 	if !ok {
-		return gw, errGatewayDoesNotExist
+		return &gw, errGatewayDoesNotExist
 	}
-	return gw, nil
+	return &gw, nil
 }
 
 func (g *gateways) set(id lorawan.EUI64, gw gateway) error {
