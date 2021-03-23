@@ -859,7 +859,7 @@ func (b *Backend) sendDataToGWviaSocket(gw *gateway, messageType int, data []byt
 	gw.mu.Lock()
 	defer gw.mu.Unlock()
 	if gw.conn == nil {
-		return errors.Wrap(err, "there is no connection with the basic station")
+		return fmt.Errorf("there is no connection with the basic station")
 	}
 	gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 	if err := gw.conn.WriteMessage(messageType, data); err != nil {
