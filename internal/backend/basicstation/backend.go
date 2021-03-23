@@ -470,7 +470,7 @@ func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
 	existingGw, err := b.gateways.get(gatewayID)
 	if err == nil && existingGw.conn != nil {
 		log.WithField("gateway_id", gatewayID).Error("backend/basicstation: connection with same gateway id already exists")
-		log.WithField("conn", existingGw.conn).Error("backend/basicstation: the connection extists!") // temp
+		// log.WithField("conn", existingGw.conn).Error("backend/basicstation: the connection extists!") // temp
 		return
 	}
 
@@ -832,7 +832,7 @@ func (b *Backend) sendToGateway(gatewayID lorawan.EUI64, v interface{}) error {
 		"message":    string(bb),
 	}).Debug("sending message to gateway")
 
-	return b.sendDataToGWviaSocket(&gw, websocket.TextMessage, bb)
+	return b.sendDataToGWviaSocket(gw, websocket.TextMessage, bb)
 
 	// gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 	// if err := gw.conn.WriteMessage(websocket.TextMessage, bb); err != nil {
@@ -847,7 +847,7 @@ func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, dat
 		return errors.Wrap(err, "get gateway error")
 	}
 
-	return b.sendDataToGWviaSocket(&gw, messageType, data)
+	return b.sendDataToGWviaSocket(gw, messageType, data)
 	// gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 	// if err := gw.conn.WriteMessage(messageType, data); err != nil {
 	// 	return errors.Wrap(err, "send message to gateway error")
@@ -858,6 +858,9 @@ func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, dat
 func (b *Backend) sendDataToGWviaSocket(gw *gateway, messageType int, data []byte) error {
 	gw.mu.Lock()
 	defer gw.mu.Unlock()
+	if gw.conn == nil {
+		return errors.Wrap(err, "there is no connection with the basic station")
+	}
 	gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 	if err := gw.conn.WriteMessage(messageType, data); err != nil {
 		return errors.Wrap(err, "send message to gateway error")
