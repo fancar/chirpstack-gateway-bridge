@@ -272,6 +272,9 @@ func (b *Backend) ApplyConfiguration(gwConfig gw.GatewayConfiguration) error {
 
 // RawPacketForwarderCommand sends the given raw command to the packet-forwarder.
 func (b *Backend) RawPacketForwarderCommand(pl gw.RawPacketForwarderCommand) error {
+	b.Lock()
+	defer b.Unlock()
+
 	var gatewayID lorawan.EUI64
 	var rawID uuid.UUID
 
@@ -344,6 +347,9 @@ func (b *Backend) Stop() error {
 }
 
 func (b *Backend) handleRouterInfo(r *http.Request, c *websocket.Conn) {
+	b.Lock()
+	defer b.Unlock()
+
 	websocketReceiveCounter("router_info").Inc()
 	var req structs.RouterInfoRequest
 
@@ -442,6 +448,8 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 }
 
 func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
+	b.Lock()
+	defer b.Unlock()
 	// get the gateway id from the url
 	urlParts := strings.Split(r.URL.Path, "/")
 	if len(urlParts) < 2 {
@@ -856,10 +864,10 @@ func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, dat
 }
 
 func (b *Backend) sendDataToGWviaSocket(gw *gateway, messageType int, data []byte) error {
-	gw.mu.Lock()
-	defer gw.mu.Unlock()
+	// gw.mu.Lock()
+	// defer gw.mu.Unlock()
 	if gw.conn == nil {
-		return fmt.Errorf("there is no connection with the basic station")
+		return fmt.Errorf("there is no tcp connection with the basic station")
 	}
 	gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 	if err := gw.conn.WriteMessage(messageType, data); err != nil {
@@ -891,12 +899,14 @@ func (b *Backend) websocketWrap(handler func(*http.Request, *websocket.Conn), w 
 		for {
 			select {
 			case <-ticker.C:
+				b.Lock()
 				websocketPingPongCounter("ping").Inc()
 				conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 					log.WithError(err).Error("backend/basicstation: send ping message error")
 					conn.Close()
 				}
+				b.Unlock()
 			case <-done:
 				return
 			}
