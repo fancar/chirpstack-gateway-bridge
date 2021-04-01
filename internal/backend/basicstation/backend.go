@@ -272,9 +272,6 @@ func (b *Backend) ApplyConfiguration(gwConfig gw.GatewayConfiguration) error {
 
 // RawPacketForwarderCommand sends the given raw command to the packet-forwarder.
 func (b *Backend) RawPacketForwarderCommand(pl gw.RawPacketForwarderCommand) error {
-	b.Lock()
-	defer b.Unlock()
-
 	var gatewayID lorawan.EUI64
 	var rawID uuid.UUID
 
