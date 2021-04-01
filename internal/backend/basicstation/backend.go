@@ -347,8 +347,6 @@ func (b *Backend) Stop() error {
 }
 
 func (b *Backend) handleRouterInfo(r *http.Request, c *websocket.Conn) {
-	b.Lock()
-	defer b.Unlock()
 
 	websocketReceiveCounter("router_info").Inc()
 	var req structs.RouterInfoRequest
@@ -448,8 +446,7 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 }
 
 func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
-	b.Lock()
-	defer b.Unlock()
+
 	// get the gateway id from the url
 	urlParts := strings.Split(r.URL.Path, "/")
 	if len(urlParts) < 2 {
@@ -864,8 +861,8 @@ func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, dat
 }
 
 func (b *Backend) sendDataToGWviaSocket(gw *gateway, messageType int, data []byte) error {
-	// gw.mu.Lock()
-	// defer gw.mu.Unlock()
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
 	if gw.conn == nil {
 		return fmt.Errorf("there is no tcp connection with the basic station")
 	}
