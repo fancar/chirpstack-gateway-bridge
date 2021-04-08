@@ -114,10 +114,13 @@ type Config struct {
 	} `mapstructure:"integration"`
 
 	Metrics struct {
+		Bind       string `mapstructure:"bind"`
 		Prometheus struct {
-			EndpointEnabled bool   `mapstructure:"endpoint_enabled"`
-			Bind            string `mapstructure:"bind"`
+			EndpointEnabled bool `mapstructure:"endpoint_enabled"`
 		} `mapstructure:"prometheus"`
+		Profiler struct {
+			EndpointEnabled bool `mapstructure:"endpoint_enabled"`
+		} `mapstructure:"profiler"`
 	} `mapstructure:"metrics"`
 
 	MetaData struct {
