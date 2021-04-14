@@ -89,7 +89,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		scheme: "ws",
 
 		gateways: gateways{
-			gateways: make(map[lorawan.EUI64]gateway),
+			gateways: make(map[lorawan.EUI64]*connection),
 		},
 
 		caCert:  conf.Backend.BasicStation.CACert,
@@ -330,7 +330,7 @@ func (b *Backend) Start() error {
 		go b.statsLoop(b.singleGwID, make(chan struct{}))
 
 		// subscribe on mqtt topic for the deveui
-		if err := b.gateways.set(b.singleGwID, gateway{}); err != nil {
+		if err := b.gateways.set(b.singleGwID, &connection{}); err != nil {
 			log.WithError(err).WithField("gateway_id", b.singleGwID).Error("backend/basicstation: set gateway error")
 		}
 	}
@@ -343,12 +343,11 @@ func (b *Backend) Stop() error {
 	return b.ln.Close()
 }
 
-func (b *Backend) handleRouterInfo(r *http.Request, c *websocket.Conn) {
-
+func (b *Backend) handleRouterInfo(r *http.Request, conn *connection) {
 	websocketReceiveCounter("router_info").Inc()
 	var req structs.RouterInfoRequest
 
-	if err := c.ReadJSON(&req); err != nil {
+	if err := conn.conn.ReadJSON(&req); err != nil {
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 			log.WithError(err).Error("backend/basicstation: read message error")
 		}
@@ -377,8 +376,11 @@ func (b *Backend) handleRouterInfo(r *http.Request, c *websocket.Conn) {
 		return
 	}
 
-	c.SetWriteDeadline(time.Now().Add(b.writeTimeout))
-	if err := c.WriteMessage(websocket.TextMessage, bb); err != nil {
+	conn.Lock()
+	defer conn.Unlock()
+
+	conn.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
+	if err := conn.conn.WriteMessage(websocket.TextMessage, bb); err != nil {
 		log.WithError(err).Error("backend/basicstation: websocket send message error")
 		return
 	}
@@ -442,8 +444,7 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 	}
 }
 
-func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
-
+func (b *Backend) handleGateway(r *http.Request, conn *connection) {
 	// get the gateway id from the url
 	urlParts := strings.Split(r.URL.Path, "/")
 	if len(urlParts) < 2 {
@@ -507,7 +508,7 @@ func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
 	}
 
 	// set the gateway connection
-	if err := b.gateways.set(gatewayID, gateway{conn: c}); err != nil {
+	if err := b.gateways.set(gatewayID, conn); err != nil {
 		log.WithError(err).WithField("gateway_id", gatewayID).Error("backend/basicstation: set gateway error")
 	}
 	log.WithFields(log.Fields{
@@ -517,7 +518,7 @@ func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
 
 	// receive data
 	for {
-		mt, msg, err := c.ReadMessage()
+		mt, msg, err := conn.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.WithField("gateway_id", gatewayID).WithError(err).Error("backend/basicstation: read message error")
@@ -526,7 +527,7 @@ func (b *Backend) handleGateway(r *http.Request, c *websocket.Conn) {
 		}
 
 		// reset the read deadline as the Basic Station doesn't respond to PONG messages (yet)
-		c.SetReadDeadline(time.Now().Add(b.readTimeout))
+		conn.conn.SetReadDeadline(time.Now().Add(b.readTimeout))
 
 		if mt == websocket.BinaryMessage {
 			log.WithFields(log.Fields{
@@ -819,10 +820,13 @@ func (b *Backend) handleTimeSync(gatewayID lorawan.EUI64, v structs.TimeSyncRequ
 }
 
 func (b *Backend) sendToGateway(gatewayID lorawan.EUI64, v interface{}) error {
-	gw, err := b.gateways.get(gatewayID)
+	conn, err := b.gateways.get(gatewayID)
 	if err != nil {
 		return errors.Wrap(err, "get gateway error")
 	}
+
+	conn.Lock()
+	defer conn.Unlock()
 
 	bb, err := json.Marshal(v)
 	if err != nil {
@@ -834,43 +838,32 @@ func (b *Backend) sendToGateway(gatewayID lorawan.EUI64, v interface{}) error {
 		"message":    string(bb),
 	}).Debug("sending message to gateway")
 
-	return b.sendDataToGWviaSocket(gw, websocket.TextMessage, bb)
+	conn.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
+	if err := conn.conn.WriteMessage(websocket.TextMessage, bb); err != nil {
+		return errors.Wrap(err, "send message to gateway error")
+	}
 
-	// gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
-	// if err := gw.conn.WriteMessage(websocket.TextMessage, bb); err != nil {
-	// 	return errors.Wrap(err, "send message to gateway error")
-	// }
-	// return nil
+	return nil
 }
 
 func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, data []byte) error {
-	gw, err := b.gateways.get(gatewayID)
+	conn, err := b.gateways.get(gatewayID)
 	if err != nil {
 		return errors.Wrap(err, "get gateway error")
 	}
 
-	return b.sendDataToGWviaSocket(gw, messageType, data)
-	// gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
-	// if err := gw.conn.WriteMessage(messageType, data); err != nil {
-	// 	return errors.Wrap(err, "send message to gateway error")
-	// }
-	// return nil
-}
+	conn.Lock()
+	defer conn.Unlock()
 
-func (b *Backend) sendDataToGWviaSocket(gw *gateway, messageType int, data []byte) error {
-	gw.mu.Lock()
-	defer gw.mu.Unlock()
-	if gw.conn == nil {
-		return fmt.Errorf("there is no tcp connection with the basic station")
-	}
-	gw.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
-	if err := gw.conn.WriteMessage(messageType, data); err != nil {
+	conn.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
+	if err := conn.conn.WriteMessage(messageType, data); err != nil {
 		return errors.Wrap(err, "send message to gateway error")
 	}
+
 	return nil
 }
 
-func (b *Backend) websocketWrap(handler func(*http.Request, *websocket.Conn), w http.ResponseWriter, r *http.Request) {
+func (b *Backend) websocketWrap(handler func(*http.Request, *connection), w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.WithError(err).Error("backend/basicstation: websocket upgrade error")
@@ -889,25 +882,29 @@ func (b *Backend) websocketWrap(handler func(*http.Request, *websocket.Conn), w 
 	defer ticker.Stop()
 	done := make(chan struct{})
 
+	// Wrap the conn inside a gateway struct, so that we can lock it when writing
+	// data.
+	c := connection{conn: conn}
+
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				b.Lock()
+				c.Lock()
 				websocketPingPongCounter("ping").Inc()
-				conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
+				c.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 					log.WithError(err).Error("backend/basicstation: send ping message error")
-					conn.Close()
+					c.conn.Close()
 				}
-				b.Unlock()
+				c.Unlock()
 			case <-done:
 				return
 			}
 		}
 	}()
 
-	handler(r, conn)
+	handler(r, &c)
 	done <- struct{}{}
 }
 
