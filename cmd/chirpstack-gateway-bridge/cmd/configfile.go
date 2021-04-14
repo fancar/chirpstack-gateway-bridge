@@ -427,7 +427,23 @@ marshaler="{{ .Integration.Marshaler }}"
   # Expose Prometheus metrics endpoint.
   endpoint_enabled={{ .Metrics.Prometheus.EndpointEnabled }}
 
+  # pprof the profiler 
+  # writes runtime profiling data in the format expected by the pprof visualization tool. 
+  # helps to handle memory leaks, etc ...
+  [metrics.profiler]
+    # enable pprof, that will be availible on /debug/pprof/
+    endpoint_enabled=true
 
+
+    # to get and analyze the data from bridge 
+    # install 'dot' library on your localhost or server that can get the gw-br
+    # sudo apt install graphviz
+
+    # to watch all the data:
+    # go tool pprof 10.147.150.100:9090/debug/pprof/heap
+
+    # this makes gif heap-praph
+    # go tool pprof -png 10.147.150.100:9090/debug/pprof/heap > heap.png
 
 
 # Gateway meta-data.
