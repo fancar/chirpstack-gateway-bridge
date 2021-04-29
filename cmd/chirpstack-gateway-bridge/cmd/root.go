@@ -111,6 +111,7 @@ func initConfig() {
 		if err := viper.ReadInConfig(); err != nil {
 			switch err.(type) {
 			case viper.ConfigFileNotFoundError:
+				log.Warning("No configuration file found, using defaults.")
 			default:
 				log.WithError(err).Fatal("read configuration file error")
 			}
