@@ -4,13 +4,13 @@ VERSION := $(shell git describe --always |sed -e "s/^v//")
 build:
 	@echo "Compiling source"
 	@mkdir -p build
-	go build $(GO_EXTRA_BUILD_ARGS) -ldflags "-s -w -X main.version=$(VERSION)" -o build/ernet-gateway-bridge cmd/chirpstack-gateway-bridge/main.go
+	go build $(GO_EXTRA_BUILD_ARGS) -ldflags "-s -w -X main.version=$(VERSION)" -o build/gateway-bridge cmd/chirpstack-gateway-bridge/main.go
 
 
 build-arm:
 	@echo "Compiling source for ARM ..."
 	@mkdir -p build
-	GOOS=linux GOARCH=arm GOARM=7 go build $(GO_EXTRA_BUILD_ARGS) -ldflags "-s -w -X main.version=$(VERSION)" -o build/ernet-gateway-bridge cmd/chirpstack-gateway-bridge/main.go
+	GOOS=linux GOARCH=arm GOARM=7 go build $(GO_EXTRA_BUILD_ARGS) -ldflags "-s -w -X main.version=$(VERSION)" -o build/gateway-bridge cmd/chirpstack-gateway-bridge/main.go
 
 clean:
 	@echo "Cleaning up workspace"
