@@ -8,7 +8,7 @@ import (
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the ChirpStack Gateway Bridge version",
+	Short: "Print the ERNet Gateway Bridge version",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(version)
 	},

@@ -19,12 +19,10 @@ var cfgFile string // config file
 var version string
 
 var rootCmd = &cobra.Command{
-	Use:   "chirpstack-gateway-bridge",
+	Use:   "ERNet-gateway-bridge",
 	Short: "abstracts the packet_forwarder protocol into Protobuf or JSON over MQTT",
-	Long: `ChirpStack Gateway Bridge abstracts the packet_forwarder protocol into Protobuf or JSON over MQTT
-	> documentation & support: https://www.chirpstack.io/gateway-bridge/
-	> source & copyright information: https://github.com/brocaar/chirpstack-gateway-bridge`,
-	RunE: run,
+	Long:  `ERNet Gateway Bridge abstracts the packet_forwarder protocol into Protobuf or JSON over MQTT`,
+	RunE:  run,
 }
 
 func init() {
@@ -106,10 +104,10 @@ func initConfig() {
 			log.WithError(err).WithField("config", cfgFile).Fatal("error loading config file")
 		}
 	} else {
-		viper.SetConfigName("chirpstack-gateway-bridge")
+		viper.SetConfigName("ernet-gateway-bridge")
 		viper.AddConfigPath(".")
-		viper.AddConfigPath("$HOME/.config/chirpstack-gateway-bridge")
-		viper.AddConfigPath("/etc/chirpstack-gateway-bridge/")
+		viper.AddConfigPath("$HOME/.config/ernet-gateway-bridge")
+		viper.AddConfigPath("/etc/ernet-gateway-bridge/")
 		if err := viper.ReadInConfig(); err != nil {
 			switch err.(type) {
 			case viper.ConfigFileNotFoundError:
