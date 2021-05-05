@@ -13,8 +13,18 @@ import (
 
 // Setup configures the metrics package.
 func Setup(conf config.Config) error {
-	if !conf.Metrics.Prometheus.EndpointEnabled || !conf.Metrics.Profiler.EndpointEnabled {
-		return nil
+	enabledMetrics := []bool{ // list of metrics toggles
+		conf.Metrics.Prometheus.EndpointEnabled,
+		conf.Metrics.Profiler.EndpointEnabled,
+	}
+
+	for i, m := range enabledMetrics {
+		if m {
+			break
+		}
+		if i == len(enabledMetrics)-1 {
+			return nil
+		}
 	}
 
 	r := mux.NewRouter()

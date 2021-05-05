@@ -81,6 +81,10 @@ func init() {
 	viper.SetDefault("meta_data.dynamic.execution_interval", time.Minute)
 	viper.SetDefault("meta_data.dynamic.max_execution_duration", time.Second)
 
+	viper.SetDefault("metrics.bind", ":8090")
+	viper.SetDefault("metrics.prometheus.endpoint_enabled", false)
+	viper.SetDefault("metrics.profiler.endpoint_enabled", true)
+
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(configCmd)
 }
