@@ -2,6 +2,12 @@ module github.com/brocaar/chirpstack-gateway-bridge
 
 go 1.16
 
+replace github.com/brocaar/chirpstack-api/go/v3 => github.com/fancar/chirpstack-api/go/v3 v3.8.2-0.20210706144249-37fbff59495d
+
+//v3.8.2-0.20210630184849-72e4ff07581a
+
+// replace github.com/brocaar/chirpstack-api/go/v3 => /home/fancar/dev/iot/api/go
+
 require (
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/brocaar/chirpstack-api/go/v3 v3.9.7

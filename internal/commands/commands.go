@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -20,7 +22,10 @@ import (
 )
 
 type command struct {
+	Name                 string // a template for name the answer
 	Command              string
+	CompressOutput       bool
+	Internal             bool
 	MaxExecutionDuration time.Duration
 }
 
@@ -35,12 +40,13 @@ func Setup(conf config.Config) error {
 	mux.Lock()
 	defer mux.Unlock()
 
-	commands = make(map[string]command)
+	commands = preconfiguredCommands() // make(map[string]command)
 
 	for k, v := range conf.Commands.Commands {
 		commands[k] = command{
 			Command:              v.Command,
 			MaxExecutionDuration: v.MaxExecutionDuration,
+			CompressOutput:       v.CompressOutput,
 		}
 
 		log.WithFields(log.Fields{
@@ -60,16 +66,92 @@ func Setup(conf config.Config) error {
 	return nil
 }
 
+// commands hardcoded by default. Mod
+func preconfiguredCommands() map[string]command {
+	commands := make(map[string]command)
+
+	// reboot the device
+	commands["reboot"] = command{
+		Command:              "/sbin/reboot",
+		MaxExecutionDuration: 1 * time.Second,
+	}
+
+	// stop packet forwarder
+	commands["radio_stop"] = command{
+		Command:              "/etc/init.d/erth_pf stop",
+		MaxExecutionDuration: 10 * time.Second,
+	}
+
+	// restart packet forwarder
+	commands["radio_restart"] = command{
+		Command:              "/etc/init.d/erth_pf restart",
+		MaxExecutionDuration: 10 * time.Second,
+	}
+
+	// start packet forwarder
+	commands["radio_start"] = command{
+		Command:              "/etc/init.d/erth_pf start",
+		MaxExecutionDuration: 10 * time.Second,
+	}
+
+	// init ssh
+	commands["reverse_ssh"] = command{
+		Command:              "/home/erth/reverse_ssh.sh",
+		MaxExecutionDuration: 5 * time.Second,
+	}
+
+	// spectrum analyser
+	commands["spectral_scan"] = command{
+		Name:                 time.Now().Format("spectrum_02012006_1504.txt"),
+		Command:              "/home/erth/spectral_scan",
+		MaxExecutionDuration: 10 * time.Minute,
+		CompressOutput:       false,
+	}
+
+	// internal complex instructions. processing by methods in internal.go
+
+	// zip and return all logs from /var/log
+	commands["get_logs"] = command{
+		Name:                 time.Now().Format("logs_02012006_1504.zip"),
+		Internal:             true, // internal command with complex logic
+		MaxExecutionDuration: 1 * time.Minute,
+	}
+
+	return commands
+}
+
 func gatewayCommandExecRequestFunc(pl gw.GatewayCommandExecRequest) {
 	go executeCommand(pl)
+}
+
+func compress(cmd string, input []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+
+	f, err := zw.Create(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create zip for cmd: %s, error: %w", cmd, err)
+	}
+
+	_, err = f.Write(input)
+	if err != nil {
+		return nil, fmt.Errorf("unable to zip output of cmd: %s, error: %w", cmd, err)
+	}
+
+	if err := zw.Close(); err != nil {
+		return nil, fmt.Errorf("unable to close zip while compressing output of cmd: %s error: %w", cmd, err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 func executeCommand(cmd gw.GatewayCommandExecRequest) {
 	var gatewayID lorawan.EUI64
 	copy(gatewayID[:], cmd.GatewayId)
 
-	stdout, stderr, err := execute(cmd.Command, cmd.Stdin, cmd.Environment)
+	n, stdout, stderr, err := execute(cmd.Command, cmd.Stdin, cmd.Environment)
 	resp := gw.GatewayCommandExecResponse{
+		Name:      n,
 		GatewayId: cmd.GatewayId,
 		ExecId:    cmd.ExecId,
 		Stdout:    stdout,
@@ -86,21 +168,25 @@ func executeCommand(cmd gw.GatewayCommandExecRequest) {
 	}
 }
 
-func execute(command string, stdin []byte, environment map[string]string) ([]byte, []byte, error) {
+func execute(command string, stdin []byte, environment map[string]string) (string, []byte, []byte, error) {
 	mux.RLock()
 	defer mux.RUnlock()
 
 	cmd, ok := commands[command]
 	if !ok {
-		return nil, nil, errors.New("command does not exist")
+		return "", nil, nil, errors.New("command does not exist")
+	}
+
+	if cmd.Internal {
+		return cmd.ExecInternal(command)
 	}
 
 	cmdArgs, err := ParseCommandLine(cmd.Command)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "parse command error")
+		return "", nil, nil, errors.Wrap(err, "parse command error")
 	}
 	if len(cmdArgs) == 0 {
-		return nil, nil, errors.New("no command is given")
+		return "", nil, nil, errors.New("no command is given")
 	}
 
 	log.WithFields(log.Fields{
@@ -125,17 +211,17 @@ func execute(command string, stdin []byte, environment map[string]string) ([]byt
 
 	stdinPipe, err := cmdCtx.StdinPipe()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "get stdin pipe error")
+		return "", nil, nil, errors.Wrap(err, "get stdin pipe error")
 	}
 
 	stdoutPipe, err := cmdCtx.StdoutPipe()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "get stdout pipe error")
+		return "", nil, nil, errors.Wrap(err, "get stdout pipe error")
 	}
 
 	stderrPipe, err := cmdCtx.StderrPipe()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "get stderr pipe error")
+		return "", nil, nil, errors.Wrap(err, "get stderr pipe error")
 	}
 
 	go func() {
@@ -146,17 +232,24 @@ func execute(command string, stdin []byte, environment map[string]string) ([]byt
 	}()
 
 	if err := cmdCtx.Start(); err != nil {
-		return nil, nil, errors.Wrap(err, "starting command error")
+		return "", nil, nil, errors.Wrap(err, "starting command error")
 	}
 
 	stdoutB, _ := ioutil.ReadAll(stdoutPipe)
 	stderrB, _ := ioutil.ReadAll(stderrPipe)
 
 	if err := cmdCtx.Wait(); err != nil {
-		return nil, nil, errors.Wrap(err, "waiting for command to finish error")
+		return "", nil, nil, errors.Wrap(err, "waiting for command to finish error")
 	}
 
-	return stdoutB, stderrB, nil
+	if len(stdoutB) > 0 && cmd.CompressOutput {
+		stdoutB, err = compress(command, stdoutB)
+		if err != nil {
+			return "", nil, nil, err
+		}
+	}
+
+	return cmd.Name, stdoutB, stderrB, nil
 }
 
 // ParseCommandLine parses the given command to commands and arguments.
