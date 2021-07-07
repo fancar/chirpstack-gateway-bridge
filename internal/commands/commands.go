@@ -70,6 +70,12 @@ func Setup(conf config.Config) error {
 func preconfiguredCommands() map[string]command {
 	commands := make(map[string]command)
 
+	// connectivity check
+	commands["ping"] = command{
+		Command:              "echo pong",
+		MaxExecutionDuration: 10 * time.Millisecond,
+	}
+
 	// reboot the device
 	commands["reboot"] = command{
 		Command:              "/sbin/reboot",
