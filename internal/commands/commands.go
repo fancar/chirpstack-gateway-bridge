@@ -162,6 +162,7 @@ func executeCommand(cmd gw.GatewayCommandExecRequest) {
 	}
 
 	var id uuid.UUID
+	copy(id[:], cmd.ExecId)
 
 	if err := integration.GetIntegration().PublishEvent(gatewayID, "exec", id, &resp); err != nil {
 		log.WithError(err).Error("commands: publish command execution event error")
