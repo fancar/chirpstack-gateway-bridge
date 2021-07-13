@@ -523,11 +523,32 @@ marshaler="{{ .Integration.Marshaler }}"
 #
 # The configured commands can be triggered by sending a message to the
 # ERNet Gateway Bridge.
+
+# built in commands:
+# - ping (just for ping-pong)
+# - reboot (runs /sbin/reboot)
+# - radio_stop (runs /etc/init.d/erth_pf stop)
+# - radio_restart (runs /etc/init.d/erth_pf restart)
+# - radio_start (runs /etc/init.d/erth_pf start)
+# - reverse_ssh (runs /home/erth/reverse_ssh.sh)
+# - spectral_scan (runs /home/erth/spectral_scan)
+# - get_logs (zip folder /var/log as logs_02012006_1504.zip)
+
 [commands]
   # Example:
-  # [commands.commands.reboot]
+  # [commands.commands.get_my_data]
+  # optinal: filename. In case you are going to get some data as file
+  name="mydata_02012006_1504.zip"
+
+  # optional: if you want to compress (zip) stdout
+  # compress_output=true
+
+  # timeout
   # max_execution_duration="1s"
-  # command="/usr/bin/reboot"
+
+  # bash command. Can be with attrs
+  # command="cat /my/file"
+
 {{ range $k, $v := .Commands.Commands }}
   [commands.commands.{{ $k }}]
   max_execution_duration="{{ $v.MaxExecutionDuration }}"
