@@ -45,6 +45,7 @@ func Setup(conf config.Config) error {
 	for k, v := range conf.Commands.Commands {
 		commands[k] = command{
 			Command:              v.Command,
+			Name:                 v.Name,
 			MaxExecutionDuration: v.MaxExecutionDuration,
 			CompressOutput:       v.CompressOutput,
 		}
