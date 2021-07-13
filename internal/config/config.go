@@ -149,6 +149,7 @@ type Config struct {
 		Commands map[string]struct {
 			MaxExecutionDuration time.Duration `mapstructure:"max_execution_duration"`
 			Command              string        `mapstructure:"command"`
+			Name                 string        `mapstructure:"name"`
 			CompressOutput       bool          `mapstructure:"compress_output"`
 		} `mapstructure:"commands"`
 	} `mapstructure:"commands"`
