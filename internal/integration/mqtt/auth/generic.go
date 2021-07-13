@@ -34,13 +34,21 @@ func NewGenericAuthentication(conf config.Config) (Authentication, error) {
 		return nil, errors.Wrap(err, "mqtt/auth: new tls config error")
 	}
 
+	clientID := conf.Integration.MQTT.Auth.Generic.ClientID
+	if conf.Backend.Single {
+		clientID = conf.Backend.GwID
+		log.WithFields(log.Fields{
+			"client_id": clientID,
+		}).Debug("integration/mqtt/auth: in single mode gatewayID will be in use as ClientID ")
+	}
+
 	return &GenericAuthentication{
 		tlsConfig:    tlsConfig,
 		servers:      conf.Integration.MQTT.Auth.Generic.Servers,
 		username:     conf.Integration.MQTT.Auth.Generic.Username,
 		password:     conf.Integration.MQTT.Auth.Generic.Password,
 		cleanSession: conf.Integration.MQTT.Auth.Generic.CleanSession,
-		clientID:     conf.Integration.MQTT.Auth.Generic.ClientID,
+		clientID:     clientID,
 	}, nil
 }
 

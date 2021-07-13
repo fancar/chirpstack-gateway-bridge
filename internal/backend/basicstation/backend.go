@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -108,7 +107,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		diidCache:  cache.New(time.Minute, time.Minute),
 		statsCache: cache.New(conf.Backend.BasicStation.StatsInterval*2, conf.Backend.BasicStation.StatsInterval*2),
 
-		singleMode: conf.Backend.BasicStation.Single.Enabled,
+		singleMode: conf.Backend.Single,
 	}
 
 	for _, n := range conf.Filters.NetIDs {
@@ -181,16 +180,13 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	}
 
 	if b.singleMode {
-		gwID, err := hex.DecodeString(conf.Backend.BasicStation.Single.GwID)
-		if err != nil {
-			return nil, errors.Wrap(err, "basic_station: Single mode is on! gw_id must be 8byte hex string")
+		var gwid lorawan.EUI64
+		if err := gwid.UnmarshalText([]byte(conf.Backend.GwID)); err != nil {
+			return nil, fmt.Errorf("backend/basic_station: [Single mode] please set gw_id (8 bytes hex into [backend] part) in config.toml")
 		}
 
-		if len(gwID) == 0 {
-			return nil, fmt.Errorf("basic_station: Single mode is on! Specify gw_id parameter with gateway id (8byte hex representation)")
-		}
-
-		copy(b.singleGwID[:], gwID)
+		b.singleGwID = gwid
+		// copy(b.singleGwID[:], gwID)
 		log.WithField("gw_id", b.singleGwID).Info("backend/basic_station: operates in single mode")
 	}
 

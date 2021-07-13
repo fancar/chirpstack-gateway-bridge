@@ -18,12 +18,13 @@ type Config struct {
 	} `mapstructure:"filters"`
 
 	Backend struct {
-		Type string `mapstructure:"type"`
-
+		Type       string `mapstructure:"type"`
+		Single     bool   `mapstructure:"single"`
+		GwID       string `mapstructure:"gw_id"`
 		SemtechUDP struct {
 			Single struct {
-				Enabled   bool   `mapstructure:"enabled"`
-				GwID      string `mapstructure:"gw_id"`
+				// Enabled   bool   `mapstructure:"enabled"`
+				// GwID      string `mapstructure:"gw_id"`
 				PushStats uint32 `mapstructure:"push_stats"`
 			} `mapstructure:"single"`
 
@@ -33,11 +34,11 @@ type Config struct {
 		} `mapstructure:"semtech_udp"`
 
 		BasicStation struct {
-			Single struct {
-				Enabled bool   `mapstructure:"enabled"`
-				GwID    string `mapstructure:"gw_id"`
-				// PushStats uint32 `mapstructure:"push_stats"`
-			} `mapstructure:"single"`
+			// Single struct {
+			// 	Enabled bool   `mapstructure:"enabled"`
+			// 	GwID    string `mapstructure:"gw_id"`
+			// 	// PushStats uint32 `mapstructure:"push_stats"`
+			// } `mapstructure:"single"`
 			Bind          string        `mapstructure:"bind"`
 			TLSCert       string        `mapstructure:"tls_cert"`
 			TLSKey        string        `mapstructure:"tls_key"`

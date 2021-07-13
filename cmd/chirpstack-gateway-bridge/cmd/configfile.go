@@ -67,6 +67,19 @@ join_euis=[{{ range $index, $elm := .Filters.JoinEUIs }}
 #   * basic_station
 type="{{ .Backend.Type }}"
 
+# the modified service can work in single mode.
+    # So it can recieve commands for the given gw_id and send statistics
+    # even with no packet forwarder running nearby
+
+    # (!) Allowed only if the parameter "udp_bind: binded on 'localhost'!
+
+# By default single=true - the bridge handles with only one packet forwarder
+# in case when the gw bridge runs directly on base station
+single="{{ .Backend.Single }}"
+
+# gateway id (64 bit) of the device the bridge handles on the base station
+# can't be blank if single=true. The gw_id also will be using as ClientID for mqtt-auth
+gw_id=""
 
   # Semtech UDP packet-forwarder backend.
   [backend.semtech_udp] 
@@ -92,18 +105,6 @@ type="{{ .Backend.Type }}"
   fake_rx_time={{ .Backend.SemtechUDP.FakeRxTime }}
 
   [backend.semtech_udp.single]
-    # the modified service can work in single mode.
-    # So it can recieve commands for the given gw_id and send statistics
-    # even without packet forwarder running
-
-    # (!) Works only if the parameter "udp_bind: binded on 'localhost'!
-
-    # if enabled=true the bridge handles with only one packet forwarder
-    enabled="{{ .Backend.SemtechUDP.Single.Enabled }}"
-
-    # gateway id (64 bit) of the device the bridge will be handling only
-    # can't be blank
-    gw_id=""
 
     # send stats even if the packet forwarder is off. If 0 - disabled
     # time (in seconds) must be the same as 'stats interval' in gateway profile 
@@ -226,20 +227,6 @@ type="{{ .Backend.Type }}"
       [backend.basic_station.concentrators.fsk]
       frequency={{ $concentrator.FSK.Frequency }}
 {{ end }}
-
-  [backend.basic_station.single]
-    # the modified service can work in single mode.
-    # So it can recieve commands for the given gw_id and send statistics
-    # even without packet forwarder running next to the gw-bridge
-
-    # (!) Works only if it runs on 'localhost'! (param 'bind')
-
-    # if enabled=true the bridge handles with only one packet forwarder
-    enabled="{{ .Backend.BasicStation.Single.Enabled }}"
-
-    # gateway id (64 bit) of the device the bridge will be handling only
-    # can't be blank if enabled
-    gw_id=""
 
 
 # Integration configuration.

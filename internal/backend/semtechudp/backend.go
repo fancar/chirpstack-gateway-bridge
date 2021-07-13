@@ -71,7 +71,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		return nil, errors.Wrap(err, "resolve udp addr error")
 	}
 
-	if conf.Backend.SemtechUDP.Single.Enabled && !addr.IP.IsLoopback() {
+	if conf.Backend.Single && !addr.IP.IsLoopback() {
 		return nil, fmt.Errorf("semtechudp: Single mode is ON. udp_bind can be only on localhost")
 	}
 
@@ -91,20 +91,17 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		skipCRCCheck: conf.Backend.SemtechUDP.SkipCRCCheck,
 		cache:        cache.New(15*time.Second, 15*time.Second),
 
-		singleMode: conf.Backend.SemtechUDP.Single.Enabled,
+		singleMode: conf.Backend.Single,
 		pushStats:  conf.Backend.SemtechUDP.Single.PushStats,
 	}
 
 	if b.singleMode {
-		gwID, err := hex.DecodeString(conf.Backend.SemtechUDP.Single.GwID)
-		if err != nil {
-			return nil, errors.Wrap(err, "semtechudp: Single mode is on! gw_id must be 8byte hex string")
-		}
-		if len(gwID) == 0 {
-			return nil, fmt.Errorf("semtechudp: Single mode is on! Specify gw_id parameter with gateway id (8byte hex representation)")
+		var gwid lorawan.EUI64
+		if err := gwid.UnmarshalText([]byte(conf.Backend.GwID)); err != nil {
+			return nil, fmt.Errorf("backend/semtechudp: [Single mode] please set gw_id (8 bytes hex into [backend] part) in config.toml")
 		}
 
-		copy(b.singleGwID[:], gwID)
+		b.singleGwID = gwid
 		b.statsChan = make(chan gw.GatewayStats)
 		log.WithField("gw_id", b.singleGwID).Info("backend/semtechudp: operates in single mode")
 

@@ -37,8 +37,8 @@ func init() {
 	viper.SetDefault("general.log_level", 4)
 	viper.SetDefault("general.version", "unknown")
 	viper.SetDefault("backend.type", "basic_station")
+	viper.SetDefault("backend.single", true)
 
-	viper.SetDefault("backend.semtech_udp.single.enabled", false)
 	viper.SetDefault("backend.semtech_udp.push_stats", 0)
 	viper.SetDefault("backend.semtech_udp.udp_bind", "localhost:1700")
 
