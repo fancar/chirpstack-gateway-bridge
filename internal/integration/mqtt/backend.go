@@ -511,7 +511,7 @@ func (b *Backend) onConnectionLost(c paho.Client, err error) {
 		log.Fatal(err)
 	}
 	mqttDisconnectCounter().Inc()
-	log.WithError(err).Error("mqtt: connection error")
+	log.WithError(err).Error("mqtt: connection lost")
 }
 
 func (b *Backend) handleDownlinkFrame(c paho.Client, msg paho.Message) {
