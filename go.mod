@@ -13,7 +13,7 @@ require (
 	github.com/brocaar/chirpstack-api/go/v3 v3.9.7
 	github.com/brocaar/lorawan v0.0.0-20201030140234-f23da2d4a303
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/eclipse/paho.mqtt.golang v1.3.0
+	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-zeromq/zmq4 v0.7.0
 	github.com/gofrs/uuid v3.3.0+incompatible
