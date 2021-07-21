@@ -49,6 +49,8 @@ type Backend struct {
 
 	marshal   func(msg proto.Message) ([]byte, error)
 	unmarshal func(b []byte, msg proto.Message) error
+
+	Single bool // only one gateway operating
 }
 
 // NewBackend creates a new Backend.
@@ -62,6 +64,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		gateways:                make(map[lorawan.EUI64]struct{}),
 		gatewaysSubscribed:      make(map[lorawan.EUI64]struct{}),
 		stateRetained:           conf.Integration.MQTT.StateRetained,
+		Single:                  conf.Backend.Single,
 	}
 
 	switch conf.Integration.MQTT.Auth.Type {
@@ -193,7 +196,10 @@ func NewBackend(conf config.Config) (*Backend, error) {
 func (b *Backend) Start() error {
 	b.connectLoop()
 	go b.reconnectLoop()
-	go b.subscribeLoop()
+
+	if !b.Single {
+		go b.subscribeLoop()
+	}
 	return nil
 }
 
@@ -420,7 +426,29 @@ func (b *Backend) reconnectLoop() {
 
 func (b *Backend) onConnected(c paho.Client) {
 	mqttConnectCounter().Inc()
-	log.Info("integration/mqtt: connected to mqtt broker")
+	log.Info("integration/mqtt:onConnected: connected to mqtt broker")
+
+	if b.Single {
+		gatewayID := b.auth.GetGatewayID()
+		if gatewayID == nil {
+			log.Fatal("integration/mqtt:onConnected: unable to subscribe. You must Specify gw_id in single mode")
+		}
+
+		if err := b.subscribeGateway(*gatewayID); err != nil {
+			log.WithError(err).WithField("gateway_id", gatewayID).Error("integration/mqtt:onConnected: subscribe gateway error")
+			return
+		}
+
+		statePL := gw.ConnState{
+			GatewayId: gatewayID[:],
+			State:     gw.ConnState_ONLINE,
+		}
+
+		if err := b.PublishState(*gatewayID, "conn", &statePL); err != nil {
+			log.WithError(err).WithField("gateway_id", gatewayID).Error("integration/mqtt:onConnected: publish conn state error")
+		}
+		return
+	}
 
 	b.gatewaysSubscribedMux.Lock()
 	defer b.gatewaysSubscribedMux.Unlock()
