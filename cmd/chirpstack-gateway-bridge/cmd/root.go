@@ -39,7 +39,7 @@ func init() {
 	viper.SetDefault("backend.type", "basic_station")
 	viper.SetDefault("backend.single", true)
 
-	viper.SetDefault("backend.semtech_udp.push_stats", 0)
+	viper.SetDefault("backend.semtech_udp.single.push_stats", 30) // push even if no any forwarder connected
 	viper.SetDefault("backend.semtech_udp.udp_bind", "localhost:1700")
 
 	viper.SetDefault("backend.concentratord.crc_check", true)
