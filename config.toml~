@@ -1,26 +1,41 @@
 # See https://www.chirpstack.io/gateway-bridge/install/config/ for a full
 # configuration example and documentation.
+[general]
+#log_level=5
 
 [integration.mqtt.auth.generic]
-servers=["tcp://localhost:1883"]
+# client_id="0101010101010122"
+servers=[
+# "tcp://localhost:1883"
+"tcp://10.147.99.24:1883"
+]
 username=""
 password=""
 
-[backend.semtech_udp.single]
-	enabled=true
+[backend]
+type="semtech_udp"
+#type="basic_station"
+  gw_id="0101010101010101"
+  #gw_id="0101010101010101010101"
 
-	gw_id="0101010101010101"
+[backend.basic_station]
+   bind="127.0.0.1:3001"
+  #[backend.basic_station.single]
+	#enabled=true
 
-	push_stats="30" # in seconds
+	#gw_id="0101010101010101"
+        #gw_id="0101010101010101010101"
+
+	# push_stats="30" # in seconds.
 
 [meta_data]
   [meta_data.host]
 
 	  [meta_data.host.ifaces]
-	  eth="Enp0s25"
+	  eth="enp0s31f6"
 
 	  # wireless interface name
-	  wlan="wlp3s0"
+	  wlan="wlp4s0"
 
 	  # gsm interface name
 	  lte="ppp0"
@@ -39,3 +54,25 @@ password=""
   # [commands.commands.ping]
   # max_execution_duration="1s"
   # command="/bin/echo pong"
+
+
+[metrics]
+ bind=":8090"
+
+  [metrics.prometheus]
+    endpoint_enabled=true
+
+  [metrics.profiler]
+  	# pprof metrics
+  	#
+    endpoint_enabled=true
+    # to use install dot and get data 
+    # sudo apt install graphviz
+
+    # to use all 
+    # go tool pprof 10.147.150.100:9090/debug/pprof/heap
+
+    # makes gif praph
+    # go tool pprof -png 10.147.150.100:9090/debug/pprof/heap > heap.png
+
+    # then run command top10/gif/web etc ...

@@ -163,7 +163,7 @@ func (b *Backend) Start() error {
 func (b *Backend) statsSender() {
 	// pf_is_off := false
 	gap := time.Duration(b.pushStats) * time.Second
-	log.WithField("period", gap).Debug("backend/semtechudp: Single gw. statsSender is on.")
+	log.WithField("period", gap).Debug("backend/semtechudp: StatsSender is on. Stats will be senfing even without packet forwarder")
 	ticker := time.NewTicker(gap + time.Second)
 	var pfts time.Time // last time when stats was sent by packet fowrarder
 
@@ -190,7 +190,7 @@ func (b *Backend) statsSender() {
 					s.StatsId = statsID[:]
 				}
 
-				log.WithField("gw_id", b.singleGwID).Warn("backend/semtechudp: No stats from pf. Sending stats by internal timer ...")
+				log.WithField("gw_id", b.singleGwID).Info("backend/semtechudp: No stats from pf. Sending stats by internal timer ...")
 
 				b.handleStats(s)
 			}
@@ -304,6 +304,7 @@ func (b *Backend) sendDownlinkFrame(frame gw.DownlinkFrame, i int, txAckItems []
 
 // ApplyConfiguration is not implemented.
 func (b *Backend) ApplyConfiguration(config gw.GatewayConfiguration) error {
+	log.Warn("received new cfg: ", config)
 	return nil
 }
 
