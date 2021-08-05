@@ -80,6 +80,8 @@ type Backend struct {
 	// single mode params
 	singleMode bool
 	singleGwID lorawan.EUI64
+
+	concentrators []config.BasicStationConcentrator
 }
 
 // NewBackend creates a new Backend.
@@ -107,7 +109,8 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		diidCache:  cache.New(time.Minute, time.Minute),
 		statsCache: cache.New(conf.Backend.BasicStation.StatsInterval*2, conf.Backend.BasicStation.StatsInterval*2),
 
-		singleMode: conf.Backend.Single,
+		singleMode:    conf.Backend.Single,
+		concentrators: conf.Backend.BasicStation.Concentrators,
 	}
 
 	for _, n := range conf.Filters.NetIDs {
@@ -261,8 +264,27 @@ func (b *Backend) SendDownlinkFrame(df gw.DownlinkFrame) error {
 	return nil
 }
 
-// ApplyConfiguration is not implemented.
-func (b *Backend) ApplyConfiguration(gwConfig gw.GatewayConfiguration) error {
+// ApplyConfiguration. Init packet forwader with new params
+func (b *Backend) ApplyConfiguration(config gw.GatewayConfiguration) error {
+	if config.Band == "" {
+		return fmt.Errorf("the recieved config doesn't contain band name")
+	}
+
+	log.Debugf("New cfg (%s) is recieved from ns. Applying ...", config.Band)
+	b.region = band.Name(config.Band)
+
+	var err error
+	b.band, err = band.GetConfig(b.region, false, lorawan.DwellTimeNoLimit)
+	if err != nil {
+		errors.Wrap(err, "get band config error")
+	}
+
+	b.routerConfig, err = structs.GetRouterConfig(b.region, b.netIDs, b.joinEUIs, b.frequencyMin, b.frequencyMax, b.concentrators)
+	if err != nil {
+		errors.Wrap(err, "get router config error")
+	}
+
+	log.Debugf("New cfg (%s) has been recieved from ns.", config.Band)
 	return nil
 }
 

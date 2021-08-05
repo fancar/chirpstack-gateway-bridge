@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/brocaar/chirpstack-api/go/v3/gw"
 	"github.com/brocaar/chirpstack-gateway-bridge/internal/backend/events"
 	"github.com/brocaar/chirpstack-gateway-bridge/internal/backend/semtechudp/packets"
+	"github.com/brocaar/chirpstack-gateway-bridge/internal/commands"
 	"github.com/brocaar/chirpstack-gateway-bridge/internal/config"
 	"github.com/brocaar/chirpstack-gateway-bridge/internal/filters"
 	"github.com/brocaar/lorawan"
@@ -56,9 +58,10 @@ type Backend struct {
 	skipCRCCheck bool
 
 	// single mode params
-	singleMode bool
-	singleGwID lorawan.EUI64
-	pushStats  uint32 // send stats in seconds, if not 0 it sends stats anyway (even with no pf)
+	singleMode    bool
+	singleGwID    lorawan.EUI64
+	pushStats     uint32 // send stats in seconds, if not 0 it sends stats anyway (even with no pf)
+	configVersion string
 }
 
 // NewBackend creates a new backend.
@@ -302,9 +305,36 @@ func (b *Backend) sendDownlinkFrame(frame gw.DownlinkFrame, i int, txAckItems []
 	return nil
 }
 
-// ApplyConfiguration is not implemented.
+// ApplyConfiguration
+// restarts configuration of packet filter according to Band name recieved
 func (b *Backend) ApplyConfiguration(config gw.GatewayConfiguration) error {
-	log.Warn("received new cfg: ", config)
+	// log.Debug("received new cfg from ns: %s. Going to apply the configuration ... ", config.Band)
+
+	if config.Band == "" {
+		return fmt.Errorf("the recieved config doesn't contain band name")
+	}
+
+	src := fmt.Sprintf("/home/erth/semtech_configs/config_%s.json", config.Band)
+	dst := "/home/erth/config.json"
+
+	bytesRead, err := ioutil.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("unable to open config %s: %v", src, err)
+	}
+
+	err = ioutil.WriteFile(dst, bytesRead, 0644)
+	if err != nil {
+		return fmt.Errorf("unable to write config.json with %s :%v", src, err)
+	}
+
+	log.Debugf("New cfg (%s) is recieved from ns. Config %s copied to %s. Restarting pf ...", config.Band, src, dst)
+
+	err = commands.Execute("radio_restart")
+	if err != nil {
+		return fmt.Errorf("unable restart packet forwarder: %v", err)
+	}
+
+	b.configVersion = config.Version
 	return nil
 }
 
@@ -601,6 +631,7 @@ func (b *Backend) handlePushData(up udpPacket) error {
 // func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
 func (b *Backend) handleStats(stats gw.GatewayStats) {
 	if b.gatewayStatsFunc != nil {
+		stats.ConfigVersion = b.configVersion
 		b.gatewayStatsFunc(stats)
 	}
 }
