@@ -176,6 +176,21 @@ func executeCommand(cmd gw.GatewayCommandExecRequest) {
 	}
 }
 
+// run command from preset-commands map using string key
+func Execute(command string) error {
+	n, stdout, stderr, err := execute(command, []byte{}, make(map[string]string))
+	if err != nil {
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"command": n,
+		"stdout":  string(stdout[:]),
+		"stderr":  string(stderr[:]),
+	}).Info("commands: the command has been executed by service itself")
+	return nil
+}
+
 func execute(command string, stdin []byte, environment map[string]string) (string, []byte, []byte, error) {
 	mux.RLock()
 	defer mux.RUnlock()
@@ -202,7 +217,7 @@ func execute(command string, stdin []byte, environment map[string]string) (strin
 		"exec":                   cmdArgs[0],
 		"args":                   cmdArgs[1:],
 		"max_execution_duration": cmd.MaxExecutionDuration,
-	}).Info("commands: executing command")
+	}).Info("commands: executing command ...")
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(cmd.MaxExecutionDuration))
 	defer cancel()
