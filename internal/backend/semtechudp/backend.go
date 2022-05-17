@@ -195,12 +195,12 @@ func (b *Backend) statsSender() {
 
 				log.WithField("gw_id", b.singleGwID).Info("backend/semtechudp: No stats from pf. Sending stats by internal timer ...")
 
-				b.handleStats(s)
+				b.handleStats(b.singleGwID, s)
 			}
 
 		case stats := <-b.statsChan: // triggered from forwarder by PushData packet
 			pfts = time.Now()
-			b.handleStats(stats)
+			b.handleStats(b.singleGwID, stats)
 		}
 	}
 
@@ -623,7 +623,7 @@ func (b *Backend) handlePushData(up udpPacket) error {
 		if b.singleMode && b.pushStats != 0 {
 			b.statsChan <- *stats
 		} else {
-			b.handleStats(*stats)
+			b.handleStats(p.GatewayMAC, *stats)
 		}
 	}
 
