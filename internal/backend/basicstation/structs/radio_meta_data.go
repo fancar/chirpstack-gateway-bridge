@@ -2,6 +2,8 @@ package structs
 
 import (
 	"encoding/binary"
+	"math"
+	"os"
 	"time"
 
 	"github.com/brocaar/chirpstack-api/go/v3/common"
@@ -22,6 +24,7 @@ type RadioMetaData struct {
 
 // RadioMetaDataUpInfo contains the radio meta-data uplink info.
 type RadioMetaDataUpInfo struct {
+	RxTime  float64 `json:"rxtime"`
 	RCtx    uint64  `json:"rctx"`
 	XTime   uint64  `json:"xtime"`
 	GPSTime int64   `json:"gpstime"`
@@ -80,9 +83,22 @@ func SetRadioMetaDataToProto(loraBand band.Band, gatewayID lorawan.EUI64, rmd Ra
 		pb.RxInfo.TimeSinceGpsEpoch = ptypes.DurationProto(gpsTimeDur)
 		pb.RxInfo.Time, err = ptypes.TimestampProto(gpsTimeTime)
 		if err != nil {
-			return errors.Wrap(err, "timestamp proto error")
+			return errors.Wrap(err, "GPSTime/timestamp proto error")
 		}
 
+	}
+
+	// The WORKAROUND_IGNORE_RX_TIME flag is a workaround in case the reported
+	// rxtime from the Basics Station must be ignored (e.g. it is not accurate).
+	if rxTime := rmd.UpInfo.RxTime; rxTime != 0 && os.Getenv("WORKAROUND_IGNORE_RX_TIME") == "" {
+		sec, nsec := math.Modf(rmd.UpInfo.RxTime)
+		if sec != 0 {
+			val := time.Unix(int64(sec), int64(nsec))
+			pb.RxInfo.Time, err = ptypes.TimestampProto(val)
+			if err != nil {
+				return errors.Wrap(err, "rxtime/timestamp proto error")
+			}
+		}
 	}
 
 	// Context

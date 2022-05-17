@@ -1,11 +1,11 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 PACKAGE_NAME="chirpstack-gateway-bridge"
 PACKAGE_VERSION=$1
 REV="r1"
 
 
-PACKAGE_URL="https://artifacts.chirpstack.io/downloads/chirpstack-gateway-bridge/chirpstack-gateway-bridge_${PACKAGE_VERSION}_linux_armv5.tar.gz"
+PACKAGE_URL="https://artifacts.chirpstack.io/downloads/chirpstack-gateway-bridge/chirpstack-gateway-bridge_${PACKAGE_VERSION}_linux_armv7.tar.gz"
 DIR=`dirname $0`
 PACKAGE_DIR="${DIR}/package"
 
@@ -17,18 +17,13 @@ mkdir -p $PACKAGE_DIR/CONTROL
 cat > $PACKAGE_DIR/CONTROL/control << EOF
 Package: $PACKAGE_NAME
 Version: $PACKAGE_VERSION-$REV
-Architecture: kona_mega
+Architecture: klkgw
 Maintainer: Orne Brocaar <info@brocaar.com>
 Priority: optional
 Section: network
 Source: N/A
 Description: ChirpStack Gateway Bridge
 EOF
-
-cat > $PACKAGE_DIR/CONTROL/postinst << EOF
-/usr/bin/monit reload
-EOF
-chmod 755 $PACKAGE_DIR/CONTROL/postinst
 
 cat > $PACKAGE_DIR/CONTROL/conffiles << EOF
 /etc/$PACKAGE_NAME/$PACKAGE_NAME.toml

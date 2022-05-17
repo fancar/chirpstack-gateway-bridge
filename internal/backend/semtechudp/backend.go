@@ -275,10 +275,13 @@ func (b *Backend) sendDownlinkFrame(frame gw.DownlinkFrame, i int, txAckItems []
 		return errors.New("invalid downlink frame item index")
 	}
 
+	// Make sure the token is truncated to an uint16.
+	token := uint16(frame.Token)
+
 	// create cache items
-	b.cache.Set(fmt.Sprintf("%d:ack", frame.Token), txAckItems, cache.DefaultExpiration)
-	b.cache.Set(fmt.Sprintf("%d:frame", frame.Token), frame, cache.DefaultExpiration)
-	b.cache.Set(fmt.Sprintf("%d:index", frame.Token), i, cache.DefaultExpiration)
+	b.cache.Set(fmt.Sprintf("%d:ack", token), txAckItems, cache.DefaultExpiration)
+	b.cache.Set(fmt.Sprintf("%d:frame", token), frame, cache.DefaultExpiration)
+	b.cache.Set(fmt.Sprintf("%d:index", token), i, cache.DefaultExpiration)
 
 	var gatewayID lorawan.EUI64
 	copy(gatewayID[:], frame.GetGatewayId())
@@ -544,7 +547,7 @@ func (b *Backend) handleTXACK(up udpPacket) error {
 		if b.downlinkTxAckFunc != nil {
 			b.downlinkTxAckFunc(gw.DownlinkTXAck{
 				GatewayId:  p.GatewayMAC[:],
-				Token:      uint32(p.RandomToken),
+				Token:      frame.Token,
 				DownlinkId: frame.DownlinkId,
 				Items:      txAckItems,
 			})
@@ -555,13 +558,19 @@ func (b *Backend) handleTXACK(up udpPacket) error {
 			Status: gw.TxAckStatus_OK,
 		}
 
+		txAck := gw.DownlinkTXAck{
+			GatewayId:  p.GatewayMAC[:],
+			Token:      frame.Token,
+			DownlinkId: frame.DownlinkId,
+			Items:      txAckItems,
+		}
+
+		if conn, err := b.gateways.get(p.GatewayMAC); err == nil {
+			conn.stats.CountDownlink(&frame, &txAck)
+		}
+
 		if b.downlinkTxAckFunc != nil {
-			b.downlinkTxAckFunc(gw.DownlinkTXAck{
-				GatewayId:  p.GatewayMAC[:],
-				Token:      uint32(p.RandomToken),
-				DownlinkId: frame.DownlinkId,
-				Items:      txAckItems,
-			})
+			b.downlinkTxAckFunc(txAck)
 		}
 	}
 
@@ -628,8 +637,19 @@ func (b *Backend) handlePushData(up udpPacket) error {
 	return nil
 }
 
-// func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
-func (b *Backend) handleStats(stats gw.GatewayStats) {
+func (b *Backend) handleStats(gatewayID lorawan.EUI64, stats gw.GatewayStats) {
+	if conn, err := b.gateways.get(gatewayID); err == nil {
+		s := conn.stats.ExportStats()
+
+		stats.RxPacketsReceivedOk = s.RxPacketsReceivedOk
+		stats.TxPacketsEmitted = s.TxPacketsEmitted
+		stats.RxPacketsPerFrequency = s.RxPacketsPerFrequency
+		stats.TxPacketsPerFrequency = s.TxPacketsPerFrequency
+		stats.RxPacketsPerModulation = s.RxPacketsPerModulation
+		stats.TxPacketsPerModulation = s.TxPacketsPerModulation
+		stats.TxPacketsPerStatus = s.TxPacketsPerStatus
+	}
+
 	if b.gatewayStatsFunc != nil {
 		stats.ConfigVersion = b.configVersion
 		b.gatewayStatsFunc(stats)
@@ -638,6 +658,13 @@ func (b *Backend) handleStats(stats gw.GatewayStats) {
 
 func (b *Backend) handleUplinkFrames(uplinkFrames []gw.UplinkFrame) error {
 	for i := range uplinkFrames {
+		var gatewayID lorawan.EUI64
+		copy(gatewayID[:], uplinkFrames[i].GetRxInfo().GatewayId)
+
+		if conn, err := b.gateways.get(gatewayID); err == nil {
+			conn.stats.CountUplink(&uplinkFrames[i])
+		}
+
 		if filters.MatchFilters(uplinkFrames[i].PhyPayload) {
 			if b.uplinkFrameFunc != nil {
 				b.uplinkFrameFunc(uplinkFrames[i])

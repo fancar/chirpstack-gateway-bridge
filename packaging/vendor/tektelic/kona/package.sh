@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 PACKAGE_NAME="chirpstack-gateway-bridge"
 PACKAGE_VERSION=$1
@@ -17,7 +17,7 @@ mkdir -p $PACKAGE_DIR/CONTROL
 cat > $PACKAGE_DIR/CONTROL/control << EOF
 Package: $PACKAGE_NAME
 Version: $PACKAGE_VERSION-$REV
-Architecture: kona_macro
+Architecture: kona
 Maintainer: Orne Brocaar <info@brocaar.com>
 Priority: optional
 Section: network

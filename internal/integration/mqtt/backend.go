@@ -41,6 +41,7 @@ type Backend struct {
 	gatewaysSubscribed      map[lorawan.EUI64]struct{}
 	terminateOnConnectError bool
 	stateRetained           bool
+	maxTokenWait            time.Duration
 
 	qos                  uint8
 	eventTopicTemplate   *template.Template
@@ -65,6 +66,7 @@ func NewBackend(conf config.Config) (*Backend, error) {
 		gatewaysSubscribed:      make(map[lorawan.EUI64]struct{}),
 		stateRetained:           conf.Integration.MQTT.StateRetained,
 		Single:                  conf.Backend.Single,
+		maxTokenWait:            conf.Integration.MQTT.MaxTokenWait,
 	}
 
 	switch conf.Integration.MQTT.Auth.Type {
@@ -276,6 +278,11 @@ func (b *Backend) SetGatewaySubscription(subscribe bool, gatewayID lorawan.EUI64
 		delete(b.gateways, gatewayID)
 	}
 
+	log.WithFields(log.Fields{
+		"gateway_id": gatewayID,
+		"subscribe":  subscribe,
+	}).Debug("integration/mqtt: gateway subscription set")
+
 	return nil
 }
 
@@ -289,9 +296,15 @@ func (b *Backend) subscribeGateway(gatewayID lorawan.EUI64) error {
 		"qos":   b.qos,
 	}).Info("integration/mqtt: subscribing to topic")
 
-	if token := b.conn.Subscribe(topic.String(), b.qos, b.handleCommand); token.Wait() && token.Error() != nil {
+	if token := b.conn.Subscribe(topic.String(), b.qos, b.handleCommand); token.WaitTimeout(b.maxTokenWait) && token.Error() != nil {
 		return errors.Wrap(token.Error(), "subscribe topic error")
 	}
+
+	log.WithFields(log.Fields{
+		"topic": topic.String(),
+		"qos":   b.qos,
+	}).Debug("integration/mqtt: subscribed to topic")
+
 	return nil
 }
 
@@ -304,9 +317,13 @@ func (b *Backend) unsubscribeGateway(gatewayID lorawan.EUI64) error {
 		"topic": topic.String(),
 	}).Info("integration/mqtt: unsubscribing from topic")
 
-	if token := b.conn.Unsubscribe(topic.String()); token.Wait() && token.Error() != nil {
+	if token := b.conn.Unsubscribe(topic.String()); token.WaitTimeout(b.maxTokenWait) && token.Error() != nil {
 		return errors.Wrap(token.Error(), "unsubscribe topic error")
 	}
+
+	log.WithFields(log.Fields{
+		"topic": topic.String(),
+	}).Debug("integration/mqtt: unsubscribed from topic")
 
 	return nil
 }
@@ -357,7 +374,7 @@ func (b *Backend) PublishState(gatewayID lorawan.EUI64, state string, v proto.Me
 		"state":      state,
 		"gateway_id": gatewayID,
 	}).Info("integration/mqtt: publishing state")
-	if token := b.conn.Publish(topic.String(), b.qos, b.stateRetained, bytes); token.Wait() && token.Error() != nil {
+	if token := b.conn.Publish(topic.String(), b.qos, b.stateRetained, bytes); token.WaitTimeout(b.maxTokenWait) && token.Error() != nil {
 		return token.Error()
 	}
 	return nil
@@ -372,7 +389,7 @@ func (b *Backend) connect() error {
 	}
 
 	b.conn = paho.NewClient(b.clientOpts)
-	if token := b.conn.Connect(); token.Wait() && token.Error() != nil {
+	if token := b.conn.Connect(); token.WaitTimeout(b.maxTokenWait) && token.Error() != nil {
 		return token.Error()
 	}
 
@@ -687,7 +704,7 @@ func (b *Backend) publishEvent(gatewayID lorawan.EUI64, event string, fields log
 	fields["event"] = event
 
 	log.WithFields(fields).Info("integration/mqtt: publishing event")
-	if token := b.conn.Publish(topic.String(), b.qos, false, bytes); token.Wait() && token.Error() != nil {
+	if token := b.conn.Publish(topic.String(), b.qos, false, bytes); token.WaitTimeout(b.maxTokenWait) && token.Error() != nil {
 		return token.Error()
 	}
 	return nil
