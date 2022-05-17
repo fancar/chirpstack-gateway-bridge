@@ -72,11 +72,9 @@ type Backend struct {
 	frequencyMax uint32
 	routerConfig structs.RouterConfig
 
-	// Cache to store stats.
-	statsCache *cache.Cache
-
 	// Cache to store diid to UUIDs.
-	diidCache *cache.Cache
+	diidCache  *cache.Cache
+	statsCache *cache.Cache
 
 	// single mode params
 	singleMode bool
@@ -263,7 +261,7 @@ func (b *Backend) SendDownlinkFrame(df gw.DownlinkFrame) error {
 	return nil
 }
 
-// ApplyConfiguration. Init packet forwader with new params
+// ApplyConfiguration Init packet forwader with new params
 func (b *Backend) ApplyConfiguration(config gw.GatewayConfiguration) error {
 	if config.Band == "" {
 		return fmt.Errorf("the recieved config doesn't contain band name")
