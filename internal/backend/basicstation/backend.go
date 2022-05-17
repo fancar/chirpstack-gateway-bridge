@@ -72,6 +72,9 @@ type Backend struct {
 	frequencyMax uint32
 	routerConfig structs.RouterConfig
 
+	// Cache to store stats.
+	statsCache *cache.Cache
+
 	// Cache to store diid to UUIDs.
 	diidCache *cache.Cache
 
