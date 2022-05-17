@@ -412,7 +412,8 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 	statsTicker := time.NewTicker(b.statsInterval)
 	defer statsTicker.Stop()
 
-	gwIDStr := gatewayID.String()
+	stats := gw.GatewayStats{}
+	stats.GatewayId = gatewayID[:]
 
 	for {
 		select {
@@ -423,35 +424,20 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 				continue
 			}
 
-			var rx, rxOK, tx, txOK uint32
-			if v, ok := b.statsCache.Get(gwIDStr + ":rx"); ok {
-				rx = v.(uint32)
+			conn, err := b.gateways.get(gatewayID)
+			if err != nil {
+				log.WithError(err).Errorf("backend/basicstation: can't get conn for gw:%v \n", gatewayID)
+				continue
 			}
-			if v, ok := b.statsCache.Get(gwIDStr + ":rxOK"); ok {
-				rxOK = v.(uint32)
-			}
-			if v, ok := b.statsCache.Get(gwIDStr + ":tx"); ok {
-				tx = v.(uint32)
-			}
-			if v, ok := b.statsCache.Get(gwIDStr + ":txOK"); ok {
-				txOK = v.(uint32)
+			if conn != nil && conn.stats != nil {
+				stats = conn.stats.ExportStats()
 			}
 
-			b.statsCache.Delete(gwIDStr + ":rx")
-			b.statsCache.Delete(gwIDStr + ":rxOK")
-			b.statsCache.Delete(gwIDStr + ":tx")
-			b.statsCache.Delete(gwIDStr + ":txOK")
+			stats.Time = ptypes.TimestampNow()
+			stats.StatsId = id[:]
 
 			if b.gatewayStatsFunc != nil {
-				b.gatewayStatsFunc(gw.GatewayStats{
-					GatewayId:           gatewayID[:],
-					Time:                ptypes.TimestampNow(),
-					StatsId:             id[:],
-					RxPacketsReceived:   rx,
-					RxPacketsReceivedOk: rxOK,
-					TxPacketsReceived:   tx,
-					TxPacketsEmitted:    txOK,
-				})
+				b.gatewayStatsFunc(stats)
 			}
 		case <-done:
 			return
