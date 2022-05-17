@@ -533,47 +533,6 @@ func (b *Backend) handleGateway(r *http.Request, conn *connection) {
 		"remote_addr": r.RemoteAddr,
 	}).Info("backend/basicstation: gateway connected")
 
-	done := make(chan struct{})
-
-	// remove the gateway on return
-	defer func() {
-		done <- struct{}{}
-		b.gateways.remove(gatewayID)
-		log.WithFields(log.Fields{
-			"gateway_id":  gatewayID,
-			"remote_addr": r.RemoteAddr,
-		}).Info("backend/basicstation: gateway disconnected")
-	}()
-
-	statsTicker := time.NewTicker(b.statsInterval)
-	defer statsTicker.Stop()
-
-	// stats publishing loop
-	go func() {
-		for {
-			select {
-			case <-statsTicker.C:
-				id, err := uuid.NewV4()
-				if err != nil {
-					log.WithError(err).Error("backend/basicstation: new uuid error")
-					continue
-				}
-
-				stats := conn.stats.ExportStats()
-				stats.GatewayId = gatewayID[:]
-				stats.Time = ptypes.TimestampNow()
-				stats.StatsId = id[:]
-
-				if b.gatewayStatsFunc != nil {
-					b.gatewayStatsFunc(stats)
-				}
-			case <-done:
-				return
-			}
-		}
-
-	}()
-
 	// receive data
 	for {
 		mt, msg, err := conn.conn.ReadMessage()
