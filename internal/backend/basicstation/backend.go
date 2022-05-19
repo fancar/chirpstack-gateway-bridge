@@ -412,9 +412,6 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 	statsTicker := time.NewTicker(b.statsInterval)
 	defer statsTicker.Stop()
 
-	stats := gw.GatewayStats{}
-	stats.GatewayId = gatewayID[:]
-
 	for {
 		select {
 		case <-statsTicker.C:
@@ -430,15 +427,16 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 				continue
 			}
 			if conn != nil && conn.stats != nil {
-				stats = conn.stats.ExportStats()
+				stats := conn.stats.ExportStats()
+				stats.GatewayId = gatewayID[:]
+				stats.Time = ptypes.TimestampNow()
+				stats.StatsId = id[:]
+
+				if b.gatewayStatsFunc != nil {
+					b.gatewayStatsFunc(stats)
+				}
 			}
 
-			stats.Time = ptypes.TimestampNow()
-			stats.StatsId = id[:]
-
-			if b.gatewayStatsFunc != nil {
-				b.gatewayStatsFunc(stats)
-			}
 		case <-done:
 			return
 		}
