@@ -8,6 +8,8 @@ go 1.16
 
 replace github.com/brocaar/chirpstack-api/go/v3 => /home/fancar/dev/iot/api/go
 
+replace github.com/eclipse/paho.mqtt.golang => github.com/eclipse/paho.mqtt.golang v1.3.6-0.20220319000430-87173763ce05
+
 require (
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/brocaar/chirpstack-api/go/v3 v3.11.0
@@ -44,7 +46,6 @@ require (
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	golang.org/x/lint v0.0.0-20190930215403-16217165b5de
 	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
-	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
