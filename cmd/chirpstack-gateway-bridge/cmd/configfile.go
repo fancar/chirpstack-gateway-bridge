@@ -454,6 +454,13 @@ marshaler="{{ .Integration.Marshaler }}"
 # Bridge.
 [meta_data]
 
+  # partitions for disk space monitoring
+  # binds disk1 and disk2 values in metadata to real mount points
+  [meta_data.partitions]
+
+  disk1_mountpoint="{{ .MetaData.Partitions.Disk1MountPoint }}"
+  disk2_mountpoint="{{ .MetaData.Partitions.Disk2MountPoint }}"
+
   # host's metadata 
   # some metrics from the host (cpu,ram,disk space, eth ifaces etc)
   [meta_data.host]

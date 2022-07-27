@@ -74,6 +74,9 @@ func init() {
 
 	viper.SetDefault("integration.mqtt.auth.azure_iot_hub.sas_token_expiration", 24*time.Hour)
 
+	viper.SetDefault("meta_data.partitions.disk1_mountpoint", "/")
+	viper.SetDefault("meta_data.partitions.disk2_mountpoint", "/var/volatile")
+
 	viper.SetDefault("meta_data.host.ifaces.eth", "eth0")
 	viper.SetDefault("meta_data.host.ifaces.wlan", "wlan0")
 	viper.SetDefault("meta_data.host.ifaces.lte", "usb0")

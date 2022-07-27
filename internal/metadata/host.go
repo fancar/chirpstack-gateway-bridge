@@ -22,7 +22,8 @@ func hostMetrics(conf config.Config) (map[string]string, error) {
 
 	result := make(map[string]string)
 
-	diskStat, err := disk.Usage("/")
+	diskOneStat, err := disk.Usage(conf.MetaData.Partitions.Disk1MountPoint)
+	diskTwoStat, err := disk.Usage(conf.MetaData.Partitions.Disk2MountPoint)
 	cpuPercentage, err := cpu.Percent(0, false)
 	vmStat, err := mem.VirtualMemory()
 	hostStat, err := host.Info()        // host or machine kernel, uptime, platform Info
@@ -34,10 +35,19 @@ func hostMetrics(conf config.Config) (map[string]string, error) {
 	}
 	// fmt.Println("config:", config.Config)
 	result["br_ver"] = conf.General.Version
-	result["disk"] = strconv.FormatFloat(diskStat.UsedPercent, 'f', 2, 64)
 	result["cpu"] = strconv.FormatFloat(cpuPercentage[0], 'f', 2, 64)
 	result["ram"] = strconv.FormatFloat(vmStat.UsedPercent, 'f', 2, 64)
 	result["uptime"] = strconv.FormatUint(hostStat.Uptime, 10)
+
+	// partitions used space
+	if diskOneStat != nil {
+		result["disk1"] = strconv.FormatFloat(diskOneStat.UsedPercent, 'f', 2, 64)
+		result["disk1_name"] = conf.MetaData.Partitions.Disk1MountPoint
+	}
+	if diskTwoStat != nil {
+		result["disk2"] = strconv.FormatFloat(diskTwoStat.UsedPercent, 'f', 2, 64)
+		result["disk2_name"] = conf.MetaData.Partitions.Disk2MountPoint
+	}
 
 	ioMap := make(map[string]net.IOCountersStat)
 	for _, io := range ioStat {

@@ -123,6 +123,11 @@ type Config struct {
 	} `mapstructure:"metrics"`
 
 	MetaData struct {
+		Partitions struct {
+			Disk1MountPoint string `mapstructure:"disk1_mountpoint"`
+			Disk2MountPoint string `mapstructure:"disk2_mountpoint"`
+		} `mapstructure:"partitions"`
+
 		Host struct {
 			Ifaces struct {
 				Eth  string `mapstructure:"eth"`
