@@ -10,15 +10,15 @@ replace github.com/brocaar/chirpstack-api/go/v3 => /home/fancar/dev/iot/api/go
 
 require (
 	github.com/brocaar/chirpstack-api/go/v3 v3.11.0
-	github.com/brocaar/lorawan v0.0.0-20210809075358-95fc1667572e
+	github.com/brocaar/lorawan v0.0.0-20230517133310-3a75f7499f00
 	github.com/eclipse/paho.mqtt.golang v1.4.2
-	github.com/go-zeromq/zmq4 v0.7.0
-	github.com/gofrs/uuid v3.3.0+incompatible
-	github.com/golang-jwt/jwt/v4 v4.0.0
+	github.com/go-zeromq/zmq4 v0.15.0
+	github.com/gofrs/uuid v4.4.0+incompatible
+	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/protobuf v1.5.3
 	github.com/goreleaser/goreleaser v0.106.0
 	github.com/goreleaser/nfpm v0.11.0
-	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
