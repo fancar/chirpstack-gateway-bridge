@@ -833,30 +833,12 @@ func (b *Backend) handleTimeSync(gatewayID lorawan.EUI64, v structs.TimeSyncRequ
 }
 
 func (b *Backend) sendToGateway(gatewayID lorawan.EUI64, v interface{}) error {
-	conn, err := b.gateways.get(gatewayID)
-	if err != nil {
-		return errors.Wrap(err, "get gateway error")
-	}
-
-	conn.Lock()
-	defer conn.Unlock()
-
 	bb, err := json.Marshal(v)
 	if err != nil {
 		return errors.Wrap(err, "marshal json error")
 	}
 
-	log.WithFields(log.Fields{
-		"gateway_id": gatewayID,
-		"message":    string(bb),
-	}).Debug("sending message to gateway")
-
-	conn.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
-	if err := conn.conn.WriteMessage(websocket.TextMessage, bb); err != nil {
-		return errors.Wrap(err, "send message to gateway error")
-	}
-
-	return nil
+	return b.sendRawToGateway(gatewayID, websocket.TextMessage, bb)
 }
 
 func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, data []byte) error {
@@ -865,8 +847,18 @@ func (b *Backend) sendRawToGateway(gatewayID lorawan.EUI64, messageType int, dat
 		return errors.Wrap(err, "get gateway error")
 	}
 
+	if conn.conn == nil {
+		return fmt.Errorf("there is no tcp connection with the basic station")
+	}
+
 	conn.Lock()
 	defer conn.Unlock()
+
+	log.WithFields(log.Fields{
+		"msg_type":   messageType,
+		"gateway_id": gatewayID,
+		"message":    string(data),
+	}).Debug("sending the message to the gateway ...")
 
 	conn.conn.SetWriteDeadline(time.Now().Add(b.writeTimeout))
 	if err := conn.conn.WriteMessage(messageType, data); err != nil {
