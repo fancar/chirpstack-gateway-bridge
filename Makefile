@@ -1,5 +1,5 @@
 .PHONY: build clean test package serve run-compose-test
-VERSION := $(shell git describe --always |sed -e "s/^v//")
+VERSION := $(shell git describe --tags |sed -e "s/^v//")
 
 build:
 	@echo "Compiling source"
