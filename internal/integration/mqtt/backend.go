@@ -144,6 +144,8 @@ func NewBackend(conf config.Config) (*Backend, error) {
 	}
 
 	b.clientOpts.SetProtocolVersion(4)
+	b.clientOpts.SetConnectRetry(true) // retry if it fails to connect on startup
+	b.clientOpts.SetConnectRetryInterval(time.Second * 10)
 	b.clientOpts.SetAutoReconnect(true) // this is required for buffering messages in case offline!
 	b.clientOpts.SetOnConnectHandler(b.onConnected)
 	b.clientOpts.SetConnectionLostHandler(b.onConnectionLost)
