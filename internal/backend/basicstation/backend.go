@@ -417,15 +417,18 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 		case <-statsTicker.C:
 			id, err := uuid.NewV4()
 			if err != nil {
-				log.WithError(err).Error("backend/basicstation: new uuid error")
+				log.WithError(err).Error("backend/basicstation:statsLoop: new uuid getter failed")
 				continue
 			}
 
 			conn, err := b.gateways.get(gatewayID)
 			if err != nil {
-				log.WithError(err).Errorf("backend/basicstation: can't get conn for gw:%v \n", gatewayID)
+				log.WithError(err).Errorf("backend/basicstation:statsLoop: can't get conn for gw:%v \n", gatewayID)
 				continue
 			}
+
+			log.WithField("gw_id", gatewayID).Debug("backend/basicstation:statsLoop: processing ...")
+
 			if conn != nil && conn.stats != nil {
 				stats := conn.stats.ExportStats()
 				stats.GatewayId = gatewayID[:]
@@ -435,9 +438,12 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 				if b.gatewayStatsFunc != nil {
 					b.gatewayStatsFunc(stats)
 				}
+			} else {
+				log.WithField("gw_id", gatewayID).Error("backend/basicstation:statsLoop: no stats for the gw. Nothing to send")
 			}
 
 		case <-done:
+			log.WithField("gw_id", gatewayID).Debug("backend/basicstation:statsLoop: done signal recieved")
 			return
 		}
 	}
