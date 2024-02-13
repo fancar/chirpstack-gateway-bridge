@@ -43,6 +43,13 @@ func (g *gateways) set(id lorawan.EUI64, c *connection) error {
 	g.Lock()
 	defer g.Unlock()
 
+	withStats, ok := g.gateways[id]
+	if ok {
+		c.stats = withStats.stats
+	} else {
+		c.stats = stats.NewCollector()
+	}
+
 	g.gateways[id] = c
 
 	if g.subscribeEventFunc != nil {

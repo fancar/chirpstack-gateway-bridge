@@ -427,8 +427,6 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 				continue
 			}
 
-			log.WithField("gw_id", gatewayID).Debug("backend/basicstation:statsLoop: processing ...")
-
 			if conn != nil && conn.stats != nil {
 				stats := conn.stats.ExportStats()
 				stats.GatewayId = gatewayID[:]
@@ -439,11 +437,10 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 					b.gatewayStatsFunc(stats)
 				}
 			} else {
-				log.WithField("gw_id", gatewayID).Error("backend/basicstation:statsLoop: no stats for the gw. Nothing to send")
+				log.WithField("gw_id", gatewayID).Debug("backend/basicstation:statsLoop: no stats for the gw. Nothing to send")
 			}
 
 		case <-done:
-			log.WithField("gw_id", gatewayID).Debug("backend/basicstation:statsLoop: done signal recieved")
 			return
 		}
 	}
