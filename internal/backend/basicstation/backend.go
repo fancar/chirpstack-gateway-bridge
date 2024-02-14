@@ -340,14 +340,13 @@ func (b *Backend) Start() error {
 	}()
 
 	if b.singleMode {
-
-		// send statistics anyway even without packet forwarder connected
-		go b.statsLoop(b.singleGwID, make(chan struct{}))
-
 		// subscribe on mqtt topic for the deveui
 		if err := b.gateways.set(b.singleGwID, &connection{}); err != nil {
 			log.WithError(err).WithField("gateway_id", b.singleGwID).Error("backend/basicstation: set gateway error")
 		}
+
+		// send statistics anyway even without packet forwarder connected
+		go b.statsLoop(b.singleGwID, make(chan struct{}))
 	}
 	return nil
 }
@@ -437,7 +436,7 @@ func (b *Backend) statsLoop(gatewayID lorawan.EUI64, done chan struct{}) {
 					b.gatewayStatsFunc(stats)
 				}
 			} else {
-				log.WithField("gw_id", gatewayID).Debug("backend/basicstation:statsLoop: no stats for the gw. Nothing to send")
+				log.WithField("gw_id", gatewayID).Debug("backend/basicstation:statsLoop: no stats collected yet. Nothing to send.")
 			}
 
 		case <-done:
@@ -481,16 +480,20 @@ func (b *Backend) handleGateway(r *http.Request, conn *connection) {
 
 	if b.singleMode {
 		if gatewayID != b.singleGwID {
-			log.WithField("gateway_id", gatewayID).Warn("backend/basicstation: gw-bdige operates in single mode. The recieved id will be ignored")
+			log.WithField("gateway_id", gatewayID).Warn("backend/basicstation: Single mode. The recieved id will be ignored")
 			return
 		}
 
 		defer func() {
-			b.gateways.reset(gatewayID)
+			if err := b.gateways.set(gatewayID, &connection{}); err != nil {
+				log.WithError(err).WithField("gateway_id", b.singleGwID).Error("backend/basicstation: Single mode. Can't reset the gateway")
+				return
+			}
+
 			log.WithFields(log.Fields{
 				"gateway_id":  gatewayID,
 				"remote_addr": r.RemoteAddr,
-			}).Info("backend/basicstation: gateway disconnected. Reset (single mode)")
+			}).Info("backend/basicstation: Single mode. The gateway-handler has been closed. Reset")
 		}()
 
 	} else {

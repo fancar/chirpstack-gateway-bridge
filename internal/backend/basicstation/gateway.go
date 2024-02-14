@@ -39,13 +39,15 @@ func (g *gateways) get(id lorawan.EUI64) (*connection, error) {
 	return gw, nil
 }
 
+// set connection, but keep stats
 func (g *gateways) set(id lorawan.EUI64, c *connection) error {
 	g.Lock()
 	defer g.Unlock()
 
-	withStats, ok := g.gateways[id]
+	// keep stats
+	keepMe, ok := g.gateways[id]
 	if ok {
-		c.stats = withStats.stats
+		c.stats = keepMe.stats
 	} else {
 		c.stats = stats.NewCollector()
 	}
@@ -68,19 +70,5 @@ func (g *gateways) remove(id lorawan.EUI64) error {
 	}
 
 	delete(g.gateways, id)
-	return nil
-}
-
-func (g *gateways) reset(id lorawan.EUI64) error {
-	g.Lock()
-	defer g.Unlock()
-
-	_, ok := g.gateways[id]
-	if !ok {
-		return errGatewayDoesNotExist
-	}
-
-	g.gateways[id] = &connection{}
-
 	return nil
 }
