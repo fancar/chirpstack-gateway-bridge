@@ -24,10 +24,14 @@ type UplinkDataFrame struct {
 	FPort       int         `json:"FPort"`
 	FRMPayload  string      `json:"FRMPayload"`
 	MIC         int32       `json:"MIC"`
+	NoRxTime    bool        `json:"-"`
 }
 
 // UplinkDataFrameToProto converts the UplinkDataFrame to the protobuf struct.
-func UplinkDataFrameToProto(loraBand band.Band, gatewayID lorawan.EUI64, updf UplinkDataFrame) (gw.UplinkFrame, error) {
+func UplinkDataFrameToProto(
+	loraBand band.Band,
+	gatewayID lorawan.EUI64,
+	updf UplinkDataFrame) (gw.UplinkFrame, error) {
 	var pb gw.UplinkFrame
 	if err := SetRadioMetaDataToProto(loraBand, gatewayID, updf.RadioMetaData, &pb); err != nil {
 		return pb, errors.Wrap(err, "set radio meta-data error")

@@ -85,6 +85,9 @@ type Backend struct {
 
 // NewBackend creates a new Backend.
 func NewBackend(conf config.Config) (*Backend, error) {
+
+	structs.IgnoreRxTime = conf.Backend.BasicStation.IgnoreRxTime
+
 	b := Backend{
 		scheme: "ws",
 

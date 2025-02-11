@@ -174,6 +174,10 @@ gw_id=""
   # Maximum frequency (Hz).
   frequency_max={{ .Backend.BasicStation.FrequencyMax }}
 
+  # if true RxTime  will be ignored completely.
+  # It allows to disable time-bypass from gateway(s)
+  ignore_rx_time={{ .Backend.BasicStation.IgnoreRxTime }}
+
   # Concentrator configuration.
   #
   # This section contains the configuration for the SX1301 concentrator chips.
