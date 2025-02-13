@@ -88,9 +88,9 @@ func SetRadioMetaDataToProto(loraBand band.Band, gatewayID lorawan.EUI64, rmd Ra
 
 	}
 
-	// The NoRxTime flag is a workaround in case the reported
+	// The PickRxTime flag is a workaround in case the reported
 	// rxtime from the Basics Station must be ignored (e.g. it is not accurate).
-	if rxTime := rmd.UpInfo.RxTime; rxTime != 0 && IgnoreRxTime {
+	if rxTime := rmd.UpInfo.RxTime; rxTime != 0 && PickRxTime {
 		sec, nsec := math.Modf(rmd.UpInfo.RxTime)
 		if sec != 0 {
 			val := time.Unix(int64(sec), int64(nsec))

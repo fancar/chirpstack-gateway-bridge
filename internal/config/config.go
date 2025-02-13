@@ -51,7 +51,7 @@ type Config struct {
 			FrequencyMin  uint32                     `mapstructure:"frequency_min"`
 			FrequencyMax  uint32                     `mapstructure:"frequency_max"`
 			Concentrators []BasicStationConcentrator `mapstructure:"concentrators"`
-			IgnoreRxTime  bool                       `mapstructure:"ignore_rx_time"`
+			PickRxTime    bool                       `mapstructure:"pick_rx_time"`
 		} `mapstructure:"basic_station"`
 
 		Concentratord struct {

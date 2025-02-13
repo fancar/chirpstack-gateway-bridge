@@ -1,5 +1,5 @@
 package structs
 
 var (
-	IgnoreRxTime bool // if true ignore time in rx packets from btroken gateways
+	PickRxTime bool // if true pass time in rx packets from bs gateway
 )

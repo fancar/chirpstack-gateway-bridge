@@ -174,9 +174,8 @@ gw_id=""
   # Maximum frequency (Hz).
   frequency_max={{ .Backend.BasicStation.FrequencyMax }}
 
-  # if true RxTime  will be ignored completely.
-  # It allows to disable time-bypass from gateway(s)
-  ignore_rx_time={{ .Backend.BasicStation.IgnoreRxTime }}
+  # if true allow bypassing RxTime to rxInfo
+  pick_rx_time={{ .Backend.BasicStation.PickRxTime }}
 
   # Concentrator configuration.
   #
